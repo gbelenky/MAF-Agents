@@ -60,4 +60,4 @@ You can initialize a project from this `azd` template in one of these ways:
 
 ## Follow the tutorial
 
-You can follow the step-by-step tutorial for this sample at [](https://learn.microsoft.com/agent-framework/tutorials/agents/create-and-run-durable-agent?pivots=programming-language-csharp). The tutorial walks you through the code and deployment process in detail.
+You can follow the step-by-step tutorial for this sample at [Create and run a durable agent](https://learn.microsoft.com/en-us/agent-framework/tutorials/agents/create-and-run-durable-agent?tabs=bash&pivots=programming-language-csharp). The tutorial walks you through the code and deployment process in detail.
