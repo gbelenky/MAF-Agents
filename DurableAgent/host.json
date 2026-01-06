@@ -17,7 +17,8 @@
                 "connectionStringName": "DURABLE_TASK_SCHEDULER_CONNECTION_STRING"
             },
             "tracing": {
-                "traceInputsAndOutputs": true
+                "traceInputsAndOutputs": true,
+                "distributedTracingVersion": "V2"
             }
         }
     }

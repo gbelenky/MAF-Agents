@@ -1,0 +1,28 @@
+### Local development requests
+
+POST http://localhost:7071/api/agents/MyDurableAgent/run HTTP/1.1
+Content-Type: text/plain
+
+On which position is .NET C# in popular programming languages?
+
+###
+# Continue conversation with thread_id from previous response
+POST http://localhost:7071/api/agents/MyDurableAgent/run?thread_id=YOUR_THREAD_ID HTTP/1.1
+Content-Type: text/plain
+
+summarize it
+
+###
+# Azure deployed function
+# Get values using:
+#   azd env get-value AZURE_FUNCTION_NAME
+#   az functionapp function keys list --name <func-name> --resource-group <rg> --function-name http-MyDurableAgent --query default -o tsv
+@functionName = YOUR_FUNCTION_NAME
+@apiKey = YOUR_API_KEY
+
+POST https://{{functionName}}.azurewebsites.net/api/agents/MyDurableAgent/run?code={{apiKey}} HTTP/1.1
+Content-Type: text/plain
+
+What are three popular programming languages?
+
+###
