@@ -37,19 +37,19 @@ cd AgentFrameworkQuickStart
 ```
 MAF-Agents/
 ├── README.md                      # This file
+├── LICENSE                        # MIT License
+├── .gitignore                     # Git ignore rules
 ├── AgentFrameworkQuickStart/      # Quick start sample (local agent)
 │   ├── README.md                  # Project documentation
 │   ├── Program.cs                 # Main application code
 │   ├── appsettings.json           # Base configuration
-│   ├── appsettings.Development.json # Dev config (git-ignored)
-│   └── .gitignore                 # Project-specific ignores
+│   └── appsettings.Development.json # Dev config (git-ignored)
 └── FoundryPersistentAgent/        # Persistent agent with File Search
     ├── README.md                  # Project documentation
     ├── Program.cs                 # Main application code
     ├── appsettings.json           # Base configuration
     ├── appsettings.Development.json # Dev config (git-ignored)
-    ├── docs/                      # Sample documents for File Search
-    └── .gitignore                 # Project-specific ignores
+    └── docs/                      # Sample documents for File Search
 ```
 
 ## Related Resources

@@ -52,7 +52,6 @@ AgentFrameworkQuickStart/
 ├── appsettings.json                # Base configuration (committed)
 ├── appsettings.Development.json    # Development settings with endpoint (git-ignored)
 ├── AgentFrameworkQuickStart.csproj # Project file with dependencies
-├── .gitignore                      # Excludes sensitive config files
 └── .vscode/
     ├── launch.json                 # Debug configuration
     └── tasks.json                  # Build tasks
