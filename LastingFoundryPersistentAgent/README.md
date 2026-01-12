@@ -1,6 +1,45 @@
 # Lasting Foundry Persistent Agent (Python - Standard Agents)
 
-An Azure Developer CLI (azd) project that creates and manages **Azure AI Foundry Standard Agents** with Vector Store capability for document Q&A (RAG pattern).
+An **Infrastructure as Code (IaC)** sample using **Azure Developer CLI (azd)** and **Bicep** to provision and manage **Azure AI Foundry Standard Agents** with Vector Store capability for document Q&A (RAG pattern).
+
+> ⚠️ **Note**: This is **NOT** a sample for the Microsoft 365 Agents Framework (MAF) or Teams/Copilot integration. This project solely demonstrates how to provision and manage **Standard Foundry Agents** vs **Classic Agents** using Infrastructure as Code (Bicep) and the Azure AI Projects Python SDK.
+
+## What This Sample Demonstrates
+
+- **IaC with Bicep** - Declarative infrastructure for AI Services, Foundry Projects, model deployments, and RBAC
+- **azd Lifecycle Hooks** - Automated agent creation on `azd provision` and cleanup on `azd down`
+- **Standard Agents API** - Using the new Foundry Agents API (not Classic/Assistants API)
+- **End-to-end Automation** - Single command to deploy infrastructure AND create agents
+
+## Standard vs Classic Agents - What's the Difference?
+
+Azure AI Foundry has two types of agents that can be confusing:
+
+### Classic Agents (Legacy)
+- Based on the **OpenAI Assistants API** (v1/v2)
+- Appear under **"Classic"** section in the Azure AI Foundry portal
+- Created using `PersistentAgentsClient` or older SDKs
+- Use `AssistantAgent` model classes
+- Will eventually be deprecated in favor of Standard Agents
+
+### Standard Agents (Current/Recommended)
+- Based on the new **Azure AI Foundry Agents API**
+- Appear in the **main Agents section** in the portal (not under "Classic")
+- Created using `AIProjectClient.agents.create_version()` 
+- Use `PromptAgentDefinition` model classes
+- Support versioning (e.g., `MyAgent:1`, `MyAgent:2`)
+- Recommended for new projects
+
+### SDK Support Matrix
+
+| SDK | Classic Agents | Standard Agents |
+|-----|---------------|-----------------|
+| **Python** `azure-ai-projects` | ❌ | ✅ `agents.create_version()` |
+| **Python** `azure-ai-agents` | ✅ | ❌ |
+| **.NET** `Azure.AI.Projects` (stable) | ✅ | ❌ Limited |
+| **.NET** `Azure.AI.Projects` (beta) | ✅ | ⚠️ Partial |
+
+This project uses **Python** with `azure-ai-projects` SDK to create **Standard Agents**.
 
 ## Key Features
 
@@ -127,17 +166,19 @@ uv run python agent_manager.py delete
 uv run python agent_manager.py --help
 ```
 
-## Standard vs Classic Agents
+## Feature Comparison
 
 | Feature | Classic Agents | Standard Agents |
 |---------|---------------|-----------------|
-| API | Assistants API | Foundry projects API |
-| Portal Location | Under "Classic" | Main agents section |
-| SDK (Python) | `azure-ai-agents-persistent` | `azure-ai-projects` |
-| SDK (.NET) | ✅ Available | ❌ Not yet |
+| API | OpenAI Assistants API | Foundry Agents API |
+| Portal Location | Under "Classic" tab | Main agents section |
+| Versioning | ❌ No | ✅ Yes (`Agent:1`, `Agent:2`) |
+| SDK (Python) | `azure-ai-agents` | `azure-ai-projects` |
+| SDK (.NET) | ✅ Full support | ⚠️ Limited/Beta |
 | Vector Store | ✅ Yes | ✅ Yes |
 | File Search | ✅ Yes | ✅ Yes |
 | Code Interpreter | ✅ Yes | ✅ Yes |
+| Recommended | ❌ Legacy | ✅ New projects |
 
 ## Environment Variables
 
