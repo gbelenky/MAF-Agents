@@ -1,4 +1,4 @@
-# Lasting Foundry Persistent Agent (Python - Standard Agents)
+# Foundry-IaC-Agent (Python - Standard Agents)
 
 An **Infrastructure as Code (IaC)** sample using **Azure Developer CLI (azd)** and **Bicep** to provision and manage **Azure AI Foundry Standard Agents** with Vector Store capability for document Q&A (RAG pattern).
 
@@ -116,7 +116,7 @@ azd down --force --purge
 ## Project Structure
 
 ```
-LastingFoundryPersistentAgent/
+Foundry-IaC-Agent/
 ├── azure.yaml              # azd configuration with hooks
 ├── infra/
 │   ├── main.bicep          # Main infrastructure
@@ -154,7 +154,7 @@ export CHAT_MODEL_DEPLOYMENT="gpt-4.1-mini"
 uv run python agent_manager.py create
 
 # Chat with the agent
-export AGENT_ID="LastingDocumentAgent:1"  # From create output
+export AGENT_ID="IaCDocumentAgent:1"  # From create output
 uv run python agent_manager.py chat
 
 # Delete agent and resources

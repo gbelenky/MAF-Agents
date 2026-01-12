@@ -1,4 +1,4 @@
-# Lasting Foundry Persistent Agent
+# Foundry-IaC-Agent
 
 Azure AI Foundry Standard Agent with Vector Store managed via azd lifecycle.
 

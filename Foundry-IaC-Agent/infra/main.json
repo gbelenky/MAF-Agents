@@ -1,0 +1,467 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "languageVersion": "2.0",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.39.26.7824",
+      "templateHash": "13718614183570680184"
+    }
+  },
+  "functions": [
+    {
+      "namespace": "_1",
+      "members": {
+        "getAiServicesRegion": {
+          "parameters": [
+            {
+              "type": "string",
+              "name": "location"
+            },
+            {
+              "type": "string",
+              "name": "modelName"
+            }
+          ],
+          "output": {
+            "type": "string",
+            "value": "[if(contains(variables('_1.aiServicesRegionMap').supported, parameters('location')), parameters('location'), if(contains(variables('_1.aiServicesRegionMap').overrides, parameters('location')), coalesce(tryGet(variables('_1.aiServicesRegionMap'), 'overrides', parameters('location')), variables('_1.aiServicesRegionMap').default), variables('_1.aiServicesRegionMap').default))]"
+          },
+          "metadata": {
+            "description": "Gets a supported region for AI Services based on model availability",
+            "__bicep_imported_from!": {
+              "sourceTemplate": "app/util/region-selector.bicep"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "parameters": {
+    "environmentName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "metadata": {
+        "description": "Name of the environment which is used to generate a short unique hash used in all resources."
+      }
+    },
+    "location": {
+      "type": "string",
+      "allowedValues": [
+        "eastus2",
+        "swedencentral",
+        "australiaeast",
+        "northcentralus"
+      ],
+      "metadata": {
+        "azd": {
+          "type": "location"
+        },
+        "description": "Primary location for all resources"
+      },
+      "minLength": 1
+    },
+    "nameSuffix": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional numeric suffix for resource names. Auto-generated if not provided."
+      }
+    },
+    "principalId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Id of the user or app to assign application roles"
+      }
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "aiServicesName": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "chatModelName": {
+      "type": "string",
+      "defaultValue": "gpt-4.1-mini",
+      "allowedValues": [
+        "gpt-4o-mini",
+        "gpt-4.1-mini",
+        "gpt-4o"
+      ]
+    }
+  },
+  "variables": {
+    "$fxv#0": {
+      "cognitiveServicesAccounts": "cog-",
+      "resourcesResourceGroups": "rg-",
+      "storageStorageAccounts": "st",
+      "insightsComponents": "appi-",
+      "operationalInsightsWorkspaces": "log-",
+      "managedIdentityUserAssignedIdentities": "id-"
+    },
+    "abbrs": "[variables('$fxv#0')]",
+    "autoSuffix": "[toLower(take(uniqueString(subscription().id, parameters('environmentName'), parameters('location')), 8))]",
+    "actualSuffix": "[if(not(empty(parameters('nameSuffix'))), parameters('nameSuffix'), variables('autoSuffix'))]",
+    "resourceToken": "foundryagent",
+    "tags": {
+      "azd-env-name": "[parameters('environmentName')]"
+    },
+    "CognitiveServicesOpenAIUser": "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd",
+    "_1.aiServicesRegionMap": {
+      "supported": [
+        "eastus",
+        "eastus2",
+        "westus2",
+        "westus3",
+        "swedencentral",
+        "northcentralus",
+        "southcentralus"
+      ],
+      "overrides": {
+        "westus": "westus2",
+        "centralus": "eastus2"
+      },
+      "default": "eastus2"
+    }
+  },
+  "resources": {
+    "rg": {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2021-04-01",
+      "name": "[if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]"
+    },
+    "aiServices": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "aiServices",
+      "resourceGroup": "[if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[_1.getAiServicesRegion(parameters('location'), parameters('chatModelName'))]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          },
+          "chatModelName": {
+            "value": "[parameters('chatModelName')]"
+          },
+          "aiServicesName": "[if(not(empty(parameters('aiServicesName'))), createObject('value', parameters('aiServicesName')), createObject('value', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, variables('resourceToken'), variables('actualSuffix'))))]"
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "5148140642896792897"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region of the deployment"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Tags to add to the resources"
+              }
+            },
+            "aiServicesName": {
+              "type": "string",
+              "metadata": {
+                "description": "AI services name"
+              }
+            },
+            "chatModelName": {
+              "type": "string",
+              "defaultValue": "gpt-4.1-mini",
+              "metadata": {
+                "description": "The chat model name to deploy"
+              }
+            },
+            "chatModelFormat": {
+              "type": "string",
+              "defaultValue": "OpenAI",
+              "metadata": {
+                "description": "The chat model format"
+              }
+            },
+            "chatModelSkuName": {
+              "type": "string",
+              "defaultValue": "GlobalStandard",
+              "metadata": {
+                "description": "The chat model SKU name"
+              }
+            },
+            "chatModelCapacity": {
+              "type": "int",
+              "defaultValue": 100,
+              "metadata": {
+                "description": "The chat model capacity"
+              }
+            }
+          },
+          "variables": {
+            "azureAIUserRoleId": "53ca6127-db72-4b80-b1b0-d745d6d5456d"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[parameters('aiServicesName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "S0"
+              },
+              "kind": "AIServices",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "customSubDomainName": "[toLower(parameters('aiServicesName'))]",
+                "publicNetworkAccess": "Enabled",
+                "disableLocalAuth": false,
+                "allowProjectManagement": true
+              }
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', parameters('aiServicesName'), parameters('chatModelName'))]",
+              "sku": {
+                "name": "[parameters('chatModelSkuName')]",
+                "capacity": "[parameters('chatModelCapacity')]"
+              },
+              "properties": {
+                "model": {
+                  "format": "[parameters('chatModelFormat')]",
+                  "name": "[parameters('chatModelName')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/projects",
+              "apiVersion": "2025-06-01",
+              "name": "[format('{0}/{1}', parameters('aiServicesName'), 'iacAgentProject')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "displayName": "IaC Agent Project",
+                "description": "AI Foundry project for IaC-based agent lifecycle management"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[format('Microsoft.CognitiveServices/accounts/{0}', parameters('aiServicesName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName')), resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiServicesName'), 'iacAgentProject'), variables('azureAIUserRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('azureAIUserRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiServicesName'), 'iacAgentProject'), '2025-06-01', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiServicesName'), 'iacAgentProject')]",
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "aiServicesName": {
+              "type": "string",
+              "value": "[parameters('aiServicesName')]"
+            },
+            "aiServicesId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]"
+            },
+            "aiServicesEndpoint": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName')), '2025-04-01-preview').endpoint]"
+            },
+            "azureOpenAIServiceEndpoint": {
+              "type": "string",
+              "value": "[format('https://{0}.openai.azure.com/', reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName')), '2025-04-01-preview').customSubDomainName)]"
+            },
+            "chatDeploymentName": {
+              "type": "string",
+              "value": "[parameters('chatModelName')]"
+            },
+            "aiFoundryProjectEndpoint": {
+              "type": "string",
+              "value": "[format('https://{0}.services.ai.azure.com/api/projects/{1}', reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName')), '2025-04-01-preview').customSubDomainName, 'iacAgentProject')]"
+            },
+            "aiFoundryProjectName": {
+              "type": "string",
+              "value": "iacAgentProject"
+            },
+            "aiFoundryProjectId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiServicesName'), 'iacAgentProject')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "rg"
+      ]
+    },
+    "openaiRoleAssignmentDeveloper": {
+      "condition": "[not(empty(parameters('principalId')))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "openaiRoleAssignmentDeveloper",
+      "resourceGroup": "[if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "openAIAccountName": {
+            "value": "[reference('aiServices').outputs.aiServicesName.value]"
+          },
+          "roleDefinitionId": {
+            "value": "[variables('CognitiveServicesOpenAIUser')]"
+          },
+          "principalId": {
+            "value": "[parameters('principalId')]"
+          },
+          "principalType": {
+            "value": "User"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "12400103652460060140"
+            }
+          },
+          "parameters": {
+            "openAIAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the Azure OpenAI account"
+              }
+            },
+            "roleDefinitionId": {
+              "type": "string",
+              "metadata": {
+                "description": "The role definition ID for the role assignment"
+              }
+            },
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "The principal ID to assign the role to"
+              }
+            },
+            "principalType": {
+              "type": "string",
+              "defaultValue": "ServicePrincipal",
+              "allowedValues": [
+                "User",
+                "Group",
+                "ServicePrincipal"
+              ],
+              "metadata": {
+                "description": "The type of principal (User, Group, or ServicePrincipal)"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[format('Microsoft.CognitiveServices/accounts/{0}', parameters('openAIAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIAccountName')), parameters('principalId'), parameters('roleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionId'))]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "[parameters('principalType')]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "aiServices",
+        "rg"
+      ]
+    }
+  },
+  "outputs": {
+    "AZURE_RESOURCE_GROUP": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the resource group."
+      },
+      "value": "[if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))]"
+    },
+    "AZURE_OPENAI_ENDPOINT": {
+      "type": "string",
+      "metadata": {
+        "description": "Endpoint for Azure OpenAI services."
+      },
+      "value": "[reference('aiServices').outputs.azureOpenAIServiceEndpoint.value]"
+    },
+    "PROJECT_ENDPOINT": {
+      "type": "string",
+      "metadata": {
+        "description": "AI Foundry project endpoint for Agent Service."
+      },
+      "value": "[reference('aiServices').outputs.aiFoundryProjectEndpoint.value]"
+    },
+    "PROJECT_NAME": {
+      "type": "string",
+      "metadata": {
+        "description": "AI Foundry project name."
+      },
+      "value": "[reference('aiServices').outputs.aiFoundryProjectName.value]"
+    },
+    "CHAT_MODEL_DEPLOYMENT": {
+      "type": "string",
+      "metadata": {
+        "description": "Chat model deployment name."
+      },
+      "value": "[reference('aiServices').outputs.chatDeploymentName.value]"
+    },
+    "AI_SERVICES_NAME": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure AI Services name."
+      },
+      "value": "[reference('aiServices').outputs.aiServicesName.value]"
+    }
+  }
+}

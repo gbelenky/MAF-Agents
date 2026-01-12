@@ -1,9 +1,9 @@
 # Azure Developer CLI configuration
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
 
-name: lasting-foundry-persistent-agent
+name: foundry-iac-agent
 metadata:
-  template: lasting-foundry-persistent-agent@0.0.1
+  template: foundry-iac-agent@0.0.1
 
 # Infrastructure as code configuration
 infra:

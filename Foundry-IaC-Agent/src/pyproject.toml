@@ -1,5 +1,5 @@
 [project]
-name = "lasting-foundry-persistent-agent"
+name = "foundry-iac-agent"
 version = "0.1.0"
 description = "Azure AI Foundry Standard Agent with Vector Store managed via azd lifecycle"
 readme = "README.md"

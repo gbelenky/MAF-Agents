@@ -101,7 +101,7 @@ If you cannot find relevant information, say so clearly.""",
     
     # Create versioned agent using the new Foundry API
     agent = project_client.agents.create_version(
-        agent_name="LastingDocumentAgent",
+        agent_name="IaCDocumentAgent",
         definition=agent_definition
     )
     

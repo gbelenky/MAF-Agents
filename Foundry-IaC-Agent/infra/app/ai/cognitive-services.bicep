@@ -54,18 +54,18 @@ resource chatModelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2
 }
 
 // AI Foundry Project (subresource of AIServices account)
-// This is required for using Azure AI Foundry Agent Service (Persistent Agents)
+// This is required for using Azure AI Foundry Agent Service (Standard Agents)
 resource aiFoundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
   parent: aiServices
-  name: 'lastingAgentProject'
+  name: 'iacAgentProject'
   location: location
   tags: tags
   identity: {
     type: 'SystemAssigned'
   }
   properties: {
-    displayName: 'Lasting Agent Project'
-    description: 'AI Foundry project for persistent agent lifecycle management'
+    displayName: 'IaC Agent Project'
+    description: 'AI Foundry project for IaC-based agent lifecycle management'
   }
 }
 
