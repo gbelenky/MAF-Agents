@@ -1,0 +1,43 @@
+# Python virtual environment
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Environment files (may contain secrets)
+.env
+.env.local
+*.local.json
+
+# Azure Developer CLI
+.azure/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+packages/
+*.nupkg
+
+# Test results
+TestResults/

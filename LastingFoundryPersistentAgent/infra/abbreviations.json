@@ -1,0 +1,8 @@
+{
+  "cognitiveServicesAccounts": "cog-",
+  "resourcesResourceGroups": "rg-",
+  "storageStorageAccounts": "st",
+  "insightsComponents": "appi-",
+  "operationalInsightsWorkspaces": "log-",
+  "managedIdentityUserAssignedIdentities": "id-"
+}

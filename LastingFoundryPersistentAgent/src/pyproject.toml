@@ -1,0 +1,22 @@
+[project]
+name = "lasting-foundry-persistent-agent"
+version = "0.1.0"
+description = "Azure AI Foundry Standard Agent with Vector Store managed via azd lifecycle"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "azure-ai-projects>=1.0.0b10",
+    "azure-identity>=1.19.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

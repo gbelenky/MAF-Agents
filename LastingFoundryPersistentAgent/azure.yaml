@@ -1,0 +1,144 @@
+# Azure Developer CLI configuration
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: lasting-foundry-persistent-agent
+metadata:
+  template: lasting-foundry-persistent-agent@0.0.1
+
+# Infrastructure as code configuration
+infra:
+  provider: bicep
+  path: infra
+  module: main
+
+# Hooks for agent lifecycle management via azd
+hooks:
+  # After provisioning infrastructure, create the agent with vector store
+  postprovision:
+    windows:
+      shell: pwsh
+      run: |
+        Write-Host "=== Creating Foundry Standard Agent with Vector Store ===" -ForegroundColor Cyan
+        Write-Host ""
+        
+        Push-Location src
+        
+        # Install dependencies using uv
+        Write-Host "Installing dependencies with uv..." -ForegroundColor Yellow
+        uv sync
+        
+        # Create the agent with vector store
+        $output = uv run python agent_manager.py create 2>&1 | Tee-Object -Variable outputLines
+        
+        # Extract and save resource IDs to azd env
+        foreach ($line in $outputLines) {
+          if ($line -match "AGENT_ID:\s*(\S+)") {
+            $agentId = $Matches[1]
+            azd env set AGENT_ID $agentId
+            Write-Host "Saved AGENT_ID: $agentId" -ForegroundColor Green
+          }
+          if ($line -match "VECTORSTORE_ID:\s*(\S+)") {
+            $vsId = $Matches[1]
+            azd env set VECTORSTORE_ID $vsId
+            Write-Host "Saved VECTORSTORE_ID: $vsId" -ForegroundColor Green
+          }
+          if ($line -match "FILE_ID:\s*(\S+)") {
+            $fileId = $Matches[1]
+            azd env set FILE_ID $fileId
+            Write-Host "Saved FILE_ID: $fileId" -ForegroundColor Green
+          }
+        }
+        
+        Pop-Location
+    posix:
+      shell: bash
+      run: |
+        echo "=== Creating Foundry Standard Agent with Vector Store ==="
+        echo ""
+        
+        cd src
+        
+        # Install dependencies using uv
+        echo "Installing dependencies with uv..."
+        uv sync
+        
+        # Create the agent and capture output
+        output=$(uv run python agent_manager.py create 2>&1)
+        echo "$output"
+        
+        # Extract and save resource IDs to azd env
+        agent_id=$(echo "$output" | grep -oP 'AGENT_ID:\s*\K\S+' | head -1)
+        vs_id=$(echo "$output" | grep -oP 'VECTORSTORE_ID:\s*\K\S+' | head -1)
+        file_id=$(echo "$output" | grep -oP 'FILE_ID:\s*\K\S+' | head -1)
+        
+        if [ -n "$agent_id" ]; then
+          azd env set AGENT_ID "$agent_id"
+          echo "Saved AGENT_ID: $agent_id"
+        fi
+        if [ -n "$vs_id" ]; then
+          azd env set VECTORSTORE_ID "$vs_id"
+          echo "Saved VECTORSTORE_ID: $vs_id"
+        fi
+        if [ -n "$file_id" ]; then
+          azd env set FILE_ID "$file_id"
+          echo "Saved FILE_ID: $file_id"
+        fi
+        
+        cd ..
+
+  # Before tearing down infrastructure, delete the agent and all resources
+  predown:
+    windows:
+      shell: pwsh
+      run: |
+        Write-Host "=== Deleting Foundry Standard Agent and Resources ===" -ForegroundColor Cyan
+        Write-Host ""
+        
+        $agentId = $env:AGENT_ID
+        $vsId = $env:VECTORSTORE_ID
+        $fileId = $env:FILE_ID
+        
+        if ([string]::IsNullOrEmpty($agentId)) {
+          Write-Host "No AGENT_ID found in environment. Skipping resource deletion." -ForegroundColor Yellow
+          exit 0
+        }
+        
+        Push-Location src
+        
+        # Install dependencies using uv (if needed)
+        uv sync
+        
+        # Delete all resources
+        uv run python agent_manager.py delete $agentId $vsId $fileId
+        
+        # Clear the IDs from env
+        azd env set AGENT_ID ""
+        azd env set VECTORSTORE_ID ""
+        azd env set FILE_ID ""
+        
+        Pop-Location
+    posix:
+      shell: bash
+      run: |
+        echo "=== Deleting Foundry Standard Agent and Resources ==="
+        echo ""
+        
+        if [ -z "$AGENT_ID" ]; then
+          echo "No AGENT_ID found in environment. Skipping resource deletion."
+          exit 0
+        fi
+        
+        cd src
+        
+        # Install dependencies using uv (if needed)
+        uv sync
+        
+        # Delete all resources
+        uv run python agent_manager.py delete "$AGENT_ID" "$VECTORSTORE_ID" "$FILE_ID"
+        
+        # Clear the IDs from env
+        azd env set AGENT_ID ""
+        azd env set VECTORSTORE_ID ""
+        azd env set FILE_ID ""
+        
+        cd ..
