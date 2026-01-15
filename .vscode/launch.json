@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch MAF Agent",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/MAF-M365-Copilot-Agent/bin/Debug/net8.0/MAF-M365-Copilot-Agent.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/MAF-M365-Copilot-Agent",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  ]
+}
