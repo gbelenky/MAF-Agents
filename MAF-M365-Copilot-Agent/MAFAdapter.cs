@@ -20,21 +20,21 @@ namespace M365CopilotAgent;
 /// An adapter class that exposes a Microsoft Agent Framework <see cref="AIAgent"/> as an M365 Agents SDK <see cref="AgentApplication"/>.
 /// This enables MAF agents to be consumed from various M365 channels including Teams and M365 Copilot.
 /// </summary>
-public sealed class MAFAgentApplication : AgentApplication
+public sealed class MAFAdapter : AgentApplication
 {
     private readonly AIAgent _agent;
     private readonly string? _welcomeMessage;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MAFAgentApplication"/> class.
+    /// Initializes a new instance of the <see cref="MAFAdapter"/> class.
     /// </summary>
     /// <param name="agent">The Microsoft Agent Framework AIAgent to expose.</param>
     /// <param name="options">The M365 Agents SDK application options.</param>
     /// <param name="welcomeMessage">Optional welcome message for new conversations.</param>
-    public MAFAgentApplication(
+    public MAFAdapter(
         AIAgent agent, 
         AgentApplicationOptions options, 
-        [FromKeyedServices("MAFAgentApplicationWelcomeMessage")] string? welcomeMessage = null) 
+        [FromKeyedServices("MAFAdapterWelcomeMessage")] string? welcomeMessage = null) 
         : base(options)
     {
         this._agent = agent;

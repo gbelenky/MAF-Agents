@@ -70,11 +70,11 @@ builder.AddAgentApplicationOptions();
 builder.Services.AddSingleton<AIAgent, MyAIAgent>();
 
 // Add optional welcome message for the agent
-builder.Services.AddKeyedSingleton("MAFAgentApplicationWelcomeMessage", 
-    "Hello! 👋 I'm your AI assistant powered by Microsoft Agent Framework. I can help you with various tasks including checking the weather, telling jokes, and answering questions. How can I help you today?");
+builder.Services.AddKeyedSingleton("MAFAdapterWelcomeMessage", 
+    "Hello! 👋 I'm your AI assistant powered by Microsoft Agent Framework. I can help you with various tasks including checking the weather and answering questions. How can I help you today?");
 
-// Add the MAFAgentApplication adapter, which bridges MAF to M365 Agents SDK
-builder.AddAgent<MAFAgentApplication>();
+// Add the MAFAdapter, which bridges MAF to M365 Agents SDK
+builder.AddAgent<MAFAdapter>();
 
 // Register IStorage. For development, MemoryStorage is suitable.
 // For production, use persisted storage so state survives restarts.

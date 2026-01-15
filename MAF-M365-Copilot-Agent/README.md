@@ -22,7 +22,7 @@ This sample demonstrates how to build an AI Agent using **Microsoft Agent Framew
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │               M365 Agents SDK (ASP.NET Core)                │
-│  - MAFAgentApplication (Adapter)                            │
+│  - MAFAdapter                                               │
 │  - Authentication & Authorization                           │
 │  - Activity Handling                                        │
 └─────────────────────────────────────────────────────────────┘
@@ -48,7 +48,7 @@ This sample demonstrates how to build an AI Agent using **Microsoft Agent Framew
 - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) - for authentication
 - [Agents Playground](https://github.com/microsoft/agents-playground) - for local testing (`winget install agentsplayground`)
 - [dev tunnel](https://learn.microsoft.com/azure/developer/dev-tunnels/get-started?tabs=windows) (optional, for Teams/WebChat testing)
-- **Microsoft Foundry** - Azure AI Foundry project with a deployed model (e.g., `gpt-4o-mini`)
+- **Microsoft Foundry** - Azure AI Foundry project with a deployed model
 
 ## Configuration
 
@@ -59,7 +59,7 @@ Edit `appsettings.Development.json` for local development:
 ```json
 "Foundry": {
   "ProjectEndpoint": "https://your-resource.openai.azure.com/",
-  "ModelDeployment": "gpt-4o-mini"
+  "ModelDeployment": "your-model-deployment-name"
 }
 ```
 
@@ -176,12 +176,186 @@ For Azure Bot Service integration, configure the `TokenValidation` and `Connecti
 
 4. Upload the manifest package via Microsoft Admin Portal or Teams Admin Center
 
+## Deployment & Hosting
+
+### Hosting Options
+
+| Option | Best For | Scaling |
+|--------|----------|---------|
+| **Azure App Service** | Production workloads | Auto-scale, deployment slots |
+| **Azure Container Apps** | Containerized deployments | Serverless containers |
+| **Azure Kubernetes Service** | Enterprise, multi-agent | Full orchestration |
+
+### Deploy to Azure App Service
+
+1. **Create an App Service:**
+   ```bash
+   az webapp create --resource-group <rg> --plan <plan> --name <app-name> --runtime "DOTNET:8.0"
+   ```
+
+2. **Configure App Settings** (equivalent to `appsettings.json`):
+   ```bash
+   az webapp config appsettings set --resource-group <rg> --name <app-name> --settings \
+     Foundry__ProjectEndpoint="https://your-resource.openai.azure.com/" \
+     Foundry__ModelDeployment="your-model-deployment-name" \
+     TokenValidation__Enabled="true" \
+     TokenValidation__Audiences__0="<your-bot-app-id>" \
+     TokenValidation__TenantId="<your-tenant-id>"
+   ```
+
+3. **Enable Managed Identity** (recommended for Foundry auth):
+   ```bash
+   az webapp identity assign --resource-group <rg> --name <app-name>
+   ```
+   Then assign **Cognitive Services OpenAI User** role to the managed identity.
+
+4. **Deploy the code:**
+   ```bash
+   dotnet publish -c Release -o ./publish
+   az webapp deploy --resource-group <rg> --name <app-name> --src-path ./publish --type zip
+   ```
+
+5. **Update Azure Bot messaging endpoint:**
+   ```
+   https://<app-name>.azurewebsites.net/api/messages
+   ```
+
+### Production Configuration
+
+For production deployments, update `appsettings.json`:
+
+```json
+{
+  "Foundry": {
+    "ProjectEndpoint": "https://your-resource.openai.azure.com/",
+    "ModelDeployment": "your-model-deployment-name"
+  },
+  "TokenValidation": {
+    "Enabled": true,
+    "Audiences": ["<your-bot-app-id>"],
+    "TenantId": "<your-tenant-id>"
+  },
+  "Connections": {
+    "ServiceConnection": {
+      "Settings": {
+        "AuthType": "ManagedIdentity",
+        "ClientId": "<managed-identity-client-id>"
+      }
+    }
+  }
+}
+```
+
+### Authentication in Production
+
+| Auth Type | When to Use | Configuration |
+|-----------|-------------|---------------|
+| **Managed Identity** | Azure-hosted, most secure | `AuthType: ManagedIdentity` |
+| **Federated Credentials** | GitHub Actions, no secrets | Workload identity federation |
+| **Client Secret** | Legacy, external hosting | `AuthType: ClientCredentials` |
+
+> ⚠️ **Important:** Always enable `TokenValidation` in production to secure your `/api/messages` endpoint.
+
+## Key Components
+
+### MAFAdapter - The Bridge Between Frameworks
+
+The `MAFAdapter` class is the core integration point that bridges **Microsoft Agent Framework (MAF)** with the **M365 Agents SDK**:
+
+```
+M365 Channels (Teams/Copilot) → M365 Agents SDK → MAFAdapter → MAF AIAgent → AI Model
+```
+
+**What it does:**
+- Extends `AgentApplication` from M365 Agents SDK to receive bot activities
+- Wraps a MAF `AIAgent` instance to handle the actual AI processing
+- Converts M365 activities into MAF conversation threads
+- Streams responses back to the M365 channel
+
+**Why it exists:**
+- MAF provides powerful AI agent capabilities (tool calling, conversation management)
+- M365 Agents SDK provides the channel integration (Teams, Copilot, WebChat)
+- MAFAdapter connects these two worlds, letting you use MAF's AI features through M365 channels
+
+**Key code flow:**
+```csharp
+protected override async Task OnMessageActivityAsync(ITurnContext<IMessageActivity> turnContext, ...)
+{
+    // 1. Get or create conversation thread for this chat
+    var threadId = turnContext.Activity.Conversation.Id;
+    
+    // 2. Send message to MAF agent and stream response
+    await foreach (var content in _agent.RunAsync(threadId, message))
+    {
+        // 3. Stream text back to Teams/Copilot
+        await turnContext.StreamMessageAsync(content.Text);
+    }
+}
+```
+
+### Adapter Pattern for Other Frameworks
+
+The same adapter pattern can be used with other AI agent frameworks. Here's an example for **LangChain (Python)**:
+
+```python
+from botbuilder.core import ActivityHandler, TurnContext
+from langchain.agents import AgentExecutor
+from langchain_openai import AzureChatOpenAI
+from langchain.memory import ConversationBufferMemory
+
+class LangChainAdapter(ActivityHandler):
+    """Adapter: LangChain Agent → M365 Agents SDK (Python)"""
+    
+    def __init__(self, agent_executor: AgentExecutor):
+        self._agent = agent_executor
+        self._memories: dict[str, ConversationBufferMemory] = {}
+    
+    async def on_message_activity(self, turn_context: TurnContext):
+        # 1. Get or create conversation memory for this chat
+        conversation_id = turn_context.activity.conversation.id
+        if conversation_id not in self._memories:
+            self._memories[conversation_id] = ConversationBufferMemory(
+                memory_key="chat_history", return_messages=True
+            )
+        
+        # 2. Invoke LangChain agent with user message
+        user_message = turn_context.activity.text
+        response = await self._agent.ainvoke({
+            "input": user_message,
+            "chat_history": self._memories[conversation_id].chat_memory.messages
+        })
+        
+        # 3. Update memory and send response back to Teams/Copilot
+        self._memories[conversation_id].save_context(
+            {"input": user_message}, {"output": response["output"]}
+        )
+        await turn_context.send_activity(response["output"])
+```
+
+**Usage with FastAPI and Bot Framework:**
+```python
+from botbuilder.core import BotFrameworkAdapter
+from fastapi import FastAPI, Request
+
+app = FastAPI()
+adapter = BotFrameworkAdapter()
+langchain_adapter = LangChainAdapter(your_agent_executor)
+
+@app.post("/api/messages")
+async def messages(request: Request):
+    body = await request.json()
+    activity = Activity().deserialize(body)
+    await adapter.process_activity(activity, "", langchain_adapter.on_turn)
+```
+
+> 💡 **Tip:** The adapter pattern works with any AI framework—Semantic Kernel, AutoGen, CrewAI, etc. The key is extending `ActivityHandler` (Python) or `AgentApplication` (C#) to bridge your framework with M365 channels.
+
 ## Project Structure
 
 ```
 MAF-M365-Copilot-Agent/
 ├── Program.cs                      # Application entry point and DI configuration
-├── MAFAgentApplication.cs          # Adapter: MAF Agent → M365 Agents SDK
+├── MAFAdapter.cs                   # Adapter: MAF Agent → M365 Agents SDK
 ├── AspNetExtensions.cs             # JWT authentication extensions for production
 ├── Agents/
 │   └── MyAIAgent.cs               # Microsoft Agent Framework AI Agent with tools
@@ -193,35 +367,6 @@ MAF-M365-Copilot-Agent/
 ├── LICENSE                         # MIT License
 └── .gitignore                      # Git ignore rules
 ```
-
-## Customizing the Agent
-
-### Adding New Tools
-
-Edit `Agents/MyAIAgent.cs` to add new tools:
-
-```csharp
-[Description("Your tool description")]
-private static string YourNewTool([Description("Parameter description")] string param)
-{
-    // Your implementation
-    return "Result";
-}
-```
-
-Then add the tool to the agent's constructor:
-
-```csharp
-Tools = [
-    AIFunctionFactory.Create(GetWeather),
-    AIFunctionFactory.Create(YourNewTool),  // Add here
-    // ...
-],
-```
-
-### Changing Agent Instructions
-
-Modify the `AgentInstructions` constant in `Agents/MyAIAgent.cs` to customize the agent's behavior.
 
 ## Important Notes
 
