@@ -14,17 +14,22 @@
       "problemMatcher": "$msCompile"
     },
     {
-      "label": "watch",
+      "label": "clean",
       "command": "dotnet",
       "type": "process",
       "args": [
-        "watch",
-        "run",
-        "--project",
+        "clean",
         "${workspaceFolder}/MAF-M365-Copilot-Agent.csproj"
       ],
-      "problemMatcher": "$msCompile",
-      "isBackground": true
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "func: host start",
+      "type": "func",
+      "command": "host start",
+      "problemMatcher": "$func-dotnet-watch",
+      "isBackground": true,
+      "dependsOn": "build"
     }
   ]
 }
