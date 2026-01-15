@@ -1,0 +1,67 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.22/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.22",
+  "version": "1.0.0",
+  "id": "{{AAD_APP_CLIENT_ID}}",
+  "developer": {
+    "name": "Your Organization",
+    "websiteUrl": "https://example.azurewebsites.net",
+    "privacyUrl": "https://example.azurewebsites.net/privacy",
+    "termsOfUseUrl": "https://example.azurewebsites.net/termsofuse"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "name": {
+    "short": "MAF Agent",
+    "full": "Microsoft Agent Framework Agent"
+  },
+  "description": {
+    "short": "AI Agent built with Microsoft Agent Framework exposed via M365 Agents SDK",
+    "full": "A powerful AI agent built using Microsoft Agent Framework with tool calling capabilities, exposed through the M365 Agents SDK for Teams and M365 Copilot integration."
+  },
+  "accentColor": "#0078D4",
+  "copilotAgents": {
+    "customEngineAgents": [
+      {
+        "id": "{{AAD_APP_CLIENT_ID}}",
+        "type": "bot"
+      }
+    ]
+  },
+  "bots": [
+    {
+      "botId": "{{AAD_APP_CLIENT_ID}}",
+      "scopes": [
+        "personal",
+        "team",
+        "groupChat"
+      ],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team", "groupChat"],
+          "commands": [
+            {
+              "title": "weather",
+              "description": "Get the current weather for a location"
+            },
+            {
+              "title": "time",
+              "description": "Get the current date and time"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "{{BOT_DOMAIN}}"
+  ]
+}
