@@ -5,7 +5,8 @@ A **Microsoft Agent Framework (MAF)** agent deployed on **Azure Functions** that
 ## Features
 
 - 🤖 **MAF Durable Agent** - Stateful agent with durable orchestration
-- 🛠️ **Function Tools** - Weather and time tools demonstrating function calling
+- 🛠️ **Function Tools** - Weather, time, and echo tools demonstrating function calling
+- 🎯 **Custom Engine Agent** - Full control over orchestration across Teams & M365 Copilot
 - ⚡ **Azure Functions** - Serverless hosting with HTTP trigger
 - 💾 **Durable Task Scheduler (DTS)** - Persistent conversation state via Azure-managed backend
 - ☁️ **Azure OpenAI** - GPT model integration via Azure AI Foundry
@@ -191,8 +192,7 @@ A **Microsoft Agent Framework (MAF)** agent deployed on **Azure Functions** that
 The app manifest is in `appManifest/`:
 ```
 appManifest/
-├── manifest.json       # Teams app manifest
-├── weatherAgent.json   # M365 Copilot declarative agent
+├── manifest.json       # Teams/M365 Copilot custom engine agent manifest
 ├── color.png          # 192x192 color icon
 └── outline.png        # 32x32 outline icon
 ```
@@ -200,21 +200,22 @@ appManifest/
 To create the zip package:
 ```powershell
 cd appManifest
-Compress-Archive -Path manifest.json,color.png,outline.png,weatherAgent.json -DestinationPath ../MAFWeatherAgent.zip -Force
+Compress-Archive -Path manifest.json,color.png,outline.png -DestinationPath ../MAFWeatherAgent.zip -Force
 ```
+
+> **Note**: This uses a **custom engine agent** configuration, which routes M365 Copilot messages through your bot endpoint (same as Teams). This enables tool calling across all channels.
 
 ## Project Structure
 
 ```
 MAF-M365-Copilot-Agent/
-├── Program.cs                # Entry point, DI configuration
-├── WeatherAgent.cs           # Agent tools (GetWeather, GetCurrentTime)
+├── Program.cs                # Entry point, DI configuration, tool registration
+├── WeatherAgent.cs           # Agent tools (GetWeather, GetCurrentTime, Echo)
 ├── MAFAdapter.cs             # Bot Framework adapter with JWT auth
 ├── host.json                 # Azure Functions + DTS configuration
 ├── local.settings.json       # Local settings (gitignored)
 ├── appManifest/              # Teams/M365 Copilot app manifest
-│   ├── manifest.json
-│   ├── weatherAgent.json
+│   ├── manifest.json         # Custom engine agent manifest
 │   ├── color.png
 │   └── outline.png
 ├── infra/                    # Bicep infrastructure (azd)
@@ -228,13 +229,13 @@ MAF-M365-Copilot-Agent/
 
 ## Adding Tools
 
-Tools are defined in [WeatherAgent.cs](WeatherAgent.cs):
+Tools are defined as instance methods in [WeatherAgent.cs](WeatherAgent.cs):
 
 ```csharp
 public class WeatherAgent
 {
     [Description("Gets the current weather for a location.")]
-    public static string GetWeather(
+    public string GetWeather(
         [Description("The city name, e.g. 'Seattle', 'New York'")] string location) 
         => location.ToLowerInvariant() switch
         {
@@ -244,29 +245,46 @@ public class WeatherAgent
         };
 
     [Description("Gets the current date and time.")]
-    public static string GetCurrentTime() 
+    public string GetCurrentTime() 
         => $"🕐 Current time: {DateTime.Now:f}";
+
+    [Description("Returns a banana sandwich. Use this to test tool calling.")]
+    public string Echo()
+        => "🍌 Banana Sandwich 🥪";
 }
+```
+
+Tools are registered in [Program.cs](Program.cs) using `AIFunctionFactory.Create`:
+
+```csharp
+var weatherAgent = new WeatherAgent();
+var tools = new AIFunction[]
+{
+    AIFunctionFactory.Create(weatherAgent.GetWeather),
+    AIFunctionFactory.Create(weatherAgent.GetCurrentTime),
+    AIFunctionFactory.Create(weatherAgent.Echo)
+};
 ```
 
 ### Adding a New Tool
 
-1. Add a method with `[Description]` attributes:
+1. Add an instance method with `[Description]` attribute in `WeatherAgent.cs`:
    ```csharp
    [Description("Searches for information on a topic.")]
-   public static string Search(
+   public string Search(
        [Description("The search query")] string query) 
        => $"Results for: {query}";
    ```
 
-2. Register it in `GetTools()`:
+2. Register it in `Program.cs`:
    ```csharp
-   public static AIFunction[] GetTools() =>
-   [
-       AIFunctionFactory.Create(GetWeather),
-       AIFunctionFactory.Create(GetCurrentTime),
-       AIFunctionFactory.Create(Search)
-   ];
+   var tools = new AIFunction[]
+   {
+       AIFunctionFactory.Create(weatherAgent.GetWeather),
+       AIFunctionFactory.Create(weatherAgent.GetCurrentTime),
+       AIFunctionFactory.Create(weatherAgent.Echo),
+       AIFunctionFactory.Create(weatherAgent.Search)  // Add new tool
+   };
    ```
 
 3. Restart the function app and redeploy.

@@ -17,8 +17,14 @@ var endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")
     ?? throw new InvalidOperationException("AZURE_OPENAI_ENDPOINT environment variable is not set");
 var deploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT") ?? "gpt-4o-mini";
 
-// Get tools from the agent class (discovered via [Description] attributes)
-var tools = WeatherAgent.GetTools();
+// Create the agent instance and get tools via AIFunctionFactory.Create
+var weatherAgent = new WeatherAgent();
+var tools = new AIFunction[]
+{
+    AIFunctionFactory.Create(weatherAgent.GetWeather),
+    AIFunctionFactory.Create(weatherAgent.GetCurrentTime),
+    AIFunctionFactory.Create(weatherAgent.Echo)
+};
 
 // Create the underlying chat client with tools (for MAFAdapter direct invocation)
 IChatClient chatClient = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
@@ -29,7 +35,7 @@ IChatClient chatClient = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzu
     .Build();
 
 // Create the MAF Durable Agent with tools (for DTS-based invocation)
-AIAgent agent = chatClient.CreateAIAgent(
+AIAgent mafAgent = chatClient.CreateAIAgent(
     instructions: WeatherAgent.Instructions,
     name: "MAFDurableAgent",
     tools: tools);
@@ -38,7 +44,7 @@ AIAgent agent = chatClient.CreateAIAgent(
 var builder = FunctionsApplication
     .CreateBuilder(args)
     .ConfigureFunctionsWebApplication()
-    .ConfigureDurableAgents(options => options.AddAIAgent(agent));
+    .ConfigureDurableAgents(options => options.AddAIAgent(mafAgent));
 
 // Register HttpClientFactory for MAFAdapter
 builder.Services.AddHttpClient();

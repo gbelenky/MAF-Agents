@@ -32,6 +32,10 @@
     <!-- Bot Framework Authentication -->
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.0" />
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.0.0" />
+    
+    <!-- M365 Agents SDK - Core models and authentication constants -->
+    <PackageReference Include="Microsoft.Agents.Core" Version="1.0.0-preview.*" />
+    <PackageReference Include="Microsoft.Agents.Authentication" Version="1.0.0-preview.*" />
   </ItemGroup>
 
 </Project>

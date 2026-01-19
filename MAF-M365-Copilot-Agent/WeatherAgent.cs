@@ -1,11 +1,10 @@
 using System.ComponentModel;
-using Microsoft.Extensions.AI;
 
 namespace MAFCopilotAgent;
 
 /// <summary>
 /// Agent with tools defined as decorated methods.
-/// Tools are automatically discovered via reflection.
+/// Tools are automatically discovered via AIFunctionFactory.Create.
 /// </summary>
 public class WeatherAgent
 {
@@ -17,7 +16,7 @@ public class WeatherAgent
         """;
 
     [Description("Gets the current weather for a location.")]
-    public static string GetWeather(
+    public string GetWeather(
         [Description("The city name, e.g. 'Seattle', 'New York', 'London'")] string location) 
         => location.ToLowerInvariant() switch
     {
@@ -31,15 +30,10 @@ public class WeatherAgent
     };
 
     [Description("Gets the current date and time.")]
-    public static string GetCurrentTime() 
+    public string GetCurrentTime() 
         => $"🕐 Current time: {DateTime.Now:dddd, MMMM d, yyyy h:mm:ss tt}";
 
-    /// <summary>
-    /// Discovers all methods with [Description] attribute and creates AIFunction tools.
-    /// </summary>
-    public static AIFunction[] GetTools() =>
-    [
-        AIFunctionFactory.Create(GetWeather),
-        AIFunctionFactory.Create(GetCurrentTime)
-    ];
+    [Description("Returns a banana sandwich. Use this to test that tools are being called.")]
+    public string Echo()
+        => "🍌 Banana Sandwich 🥪";
 }

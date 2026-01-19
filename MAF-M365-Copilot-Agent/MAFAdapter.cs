@@ -2,6 +2,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Agents.Authentication;
+using Microsoft.Agents.Core.Models;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.AI;
@@ -68,9 +70,9 @@ public class MAFAdapter
             _logger.LogInformation("Authentication skipped (local development mode)");
         }
 
-        // Parse the Bot Framework activity
+        // Parse the Bot Framework activity using M365 Agents SDK Activity model
         var requestBody = await req.ReadAsStringAsync();
-        var activity = JsonSerializer.Deserialize<BotActivity>(requestBody ?? "", new JsonSerializerOptions 
+        var activity = JsonSerializer.Deserialize<Activity>(requestBody ?? "", new JsonSerializerOptions 
         { 
             PropertyNameCaseInsensitive = true 
         });
@@ -86,7 +88,7 @@ public class MAFAdapter
             activity.Type, activity.Text, activity.ServiceUrl);
 
         // Handle message activities
-        if (activity.Type == "message" && !string.IsNullOrEmpty(activity.Text))
+        if (activity.Type == ActivityTypes.Message && !string.IsNullOrEmpty(activity.Text))
         {
             var conversationId = activity.Conversation?.Id ?? Guid.NewGuid().ToString();
 
@@ -128,7 +130,7 @@ public class MAFAdapter
         }
 
         // For conversationUpdate - send welcome message
-        if (activity.Type == "conversationUpdate" && activity.MembersAdded != null)
+        if (activity.Type == ActivityTypes.ConversationUpdate && activity.MembersAdded != null)
         {
             // Check if bot was added (not user)
             foreach (var member in activity.MembersAdded)
@@ -146,7 +148,7 @@ public class MAFAdapter
         return req.CreateResponse(HttpStatusCode.OK);
     }
 
-    private async Task SendReplyToServiceUrl(BotActivity activity, string text)
+    private async Task SendReplyToServiceUrl(Activity activity, string text)
     {
         if (string.IsNullOrEmpty(activity.ServiceUrl) || activity.Conversation == null)
         {
@@ -154,10 +156,10 @@ public class MAFAdapter
             return;
         }
 
-        // Build a reply activity using the same class structure
-        var replyActivity = new BotActivity
+        // Build a reply activity using M365 Agents SDK Activity model
+        var replyActivity = new Activity
         {
-            Type = "message",
+            Type = ActivityTypes.Message,
             Text = text,
             From = new ChannelAccount
             {
@@ -175,7 +177,7 @@ public class MAFAdapter
             },
             ReplyToId = activity.Id,
             ServiceUrl = activity.ServiceUrl,
-            ChannelId = activity.ChannelId ?? "webchat"
+            ChannelId = activity.ChannelId ?? Channels.Webchat
         };
 
         // Build the reply URL: serviceUrl + /v3/conversations/{conversationId}/activities
@@ -310,24 +312,25 @@ public class MAFAdapter
                 return AuthValidationResult.Failure("Empty bearer token");
             }
 
-            // Initialize OIDC configuration manager (cached)
+            // Initialize OIDC configuration manager (cached) using SDK constants
             _configManager ??= new ConfigurationManager<OpenIdConnectConfiguration>(
-                "https://login.botframework.com/v1/.well-known/openidconfiguration",
+                AuthenticationConstants.PublicAzureBotServiceOpenIdMetadataUrl,
                 new OpenIdConnectConfigurationRetriever(),
                 new HttpDocumentRetriever());
 
             var openIdConfig = await _configManager.GetConfigurationAsync(CancellationToken.None);
 
-            // Token validation parameters
+            // Token validation parameters using SDK constants
             var validationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
                 ValidIssuers = new[]
                 {
-                    "https://api.botframework.com",
-                    "https://sts.windows.net/d6d49420-f39b-4df7-a1dc-d59a935871db/", // Bot Framework tenant
-                    "https://sts.windows.net/f8cdef31-a31e-4b4a-93e4-5f571e91255a/", // US Gov
-                    $"https://sts.windows.net/{_authConfig.MicrosoftAppTenantId}/" // Custom tenant
+                    AuthenticationConstants.BotFrameworkTokenIssuer,
+                    string.Format(AuthenticationConstants.ValidTokenIssuerUrlTemplateV1, "d6d49420-f39b-4df7-a1dc-d59a935871db"), // Bot Framework tenant
+                    string.Format(AuthenticationConstants.ValidTokenIssuerUrlTemplateV1, "f8cdef31-a31e-4b4a-93e4-5f571e91255a"), // US Gov
+                    string.Format(AuthenticationConstants.ValidTokenIssuerUrlTemplateV1, _authConfig.MicrosoftAppTenantId), // Custom tenant V1
+                    string.Format(AuthenticationConstants.ValidTokenIssuerUrlTemplateV2, _authConfig.MicrosoftAppTenantId)  // Custom tenant V2
                 },
                 ValidateAudience = true,
                 ValidAudiences = new[] { _authConfig.MicrosoftAppId },
@@ -356,32 +359,6 @@ public class MAFAdapter
             return AuthValidationResult.Failure("Authentication error");
         }
     }
-}
-
-// Bot Framework activity models
-public class BotActivity
-{
-    public string? Type { get; set; }
-    public string? Id { get; set; }
-    public string? Text { get; set; }
-    public string? ServiceUrl { get; set; }
-    public string? ChannelId { get; set; }
-    public ChannelAccount? From { get; set; }
-    public ChannelAccount? Recipient { get; set; }
-    public ConversationAccount? Conversation { get; set; }
-    public string? ReplyToId { get; set; }
-    public List<ChannelAccount>? MembersAdded { get; set; }
-}
-
-public class ChannelAccount
-{
-    public string? Id { get; set; }
-    public string? Name { get; set; }
-}
-
-public class ConversationAccount
-{
-    public string? Id { get; set; }
 }
 
 /// <summary>

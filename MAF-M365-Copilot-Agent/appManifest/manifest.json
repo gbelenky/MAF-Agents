@@ -1,7 +1,7 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.22/MicrosoftTeams.schema.json",
   "manifestVersion": "1.22",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "id": "37383e12-b9de-4845-97e8-dd89ed31dbe3",
   "developer": {
     "name": "MAF Demo",
@@ -26,6 +26,7 @@
     {
       "botId": "37383e12-b9de-4845-97e8-dd89ed31dbe3",
       "scopes": [
+        "copilot",
         "personal",
         "team",
         "groupChat"
@@ -34,11 +35,19 @@
       "isNotificationOnly": false,
       "commandLists": [
         {
-          "scopes": ["personal", "team", "groupChat"],
+          "scopes": ["copilot", "personal", "team", "groupChat"],
           "commands": [
             {
               "title": "weather",
               "description": "Get the current weather for a location"
+            },
+            {
+              "title": "time",
+              "description": "Get the current date and time"
+            },
+            {
+              "title": "echo",
+              "description": "Test tool calling with banana sandwich"
             }
           ]
         }
@@ -53,10 +62,10 @@
     "funclqsmbshgmhab2.azurewebsites.net"
   ],
   "copilotAgents": {
-    "declarativeAgents": [
+    "customEngineAgents": [
       {
-        "id": "weatherAgent",
-        "file": "weatherAgent.json"
+        "type": "bot",
+        "id": "37383e12-b9de-4845-97e8-dd89ed31dbe3"
       }
     ]
   }
