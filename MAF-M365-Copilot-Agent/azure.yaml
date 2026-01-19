@@ -1,0 +1,17 @@
+# Azure Developer CLI (azd) configuration
+# Run `azd up` to provision and deploy
+
+name: maf-m365-copilot-agent
+metadata:
+  template: azd-init@1.0.0
+
+infra:
+  provider: bicep
+  path: infra
+  module: main
+
+services:
+  api:
+    project: .
+    language: dotnet
+    host: function

@@ -6,7 +6,10 @@
       "type": "coreclr",
       "request": "attach",
       "processId": "${command:azureFunctions.pickProcess}",
-      "preLaunchTask": "func: host start"
+      "preLaunchTask": "func: host start",
+      "logging": {
+        "moduleLoad": false
+      }
     }
   ]
 }

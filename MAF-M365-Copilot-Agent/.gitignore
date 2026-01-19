@@ -143,4 +143,13 @@ ipch/
 *.spec
 
 # Azurite
-AzuriteConfig
+AzuriteConfig__azurite_db_*.json
+__blobstorage__/
+__queuestorage__/
+
+# Logs
+logs.zip
+*.log
+
+# Teams packages (generated)
+*.zip

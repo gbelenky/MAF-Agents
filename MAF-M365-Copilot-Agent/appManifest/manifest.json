@@ -2,37 +2,29 @@
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.22/MicrosoftTeams.schema.json",
   "manifestVersion": "1.22",
   "version": "1.0.0",
-  "id": "{{AAD_APP_CLIENT_ID}}",
+  "id": "37383e12-b9de-4845-97e8-dd89ed31dbe3",
   "developer": {
-    "name": "Your Organization",
-    "websiteUrl": "https://example.azurewebsites.net",
-    "privacyUrl": "https://example.azurewebsites.net/privacy",
-    "termsOfUseUrl": "https://example.azurewebsites.net/termsofuse"
+    "name": "MAF Demo",
+    "websiteUrl": "https://funclqsmbshgmhab2.azurewebsites.net",
+    "privacyUrl": "https://funclqsmbshgmhab2.azurewebsites.net/privacy",
+    "termsOfUseUrl": "https://funclqsmbshgmhab2.azurewebsites.net/terms"
   },
   "icons": {
     "color": "color.png",
     "outline": "outline.png"
   },
   "name": {
-    "short": "MAF Agent",
-    "full": "Microsoft Agent Framework Agent"
+    "short": "MAF Weather Agent",
+    "full": "Microsoft Agent Framework Weather Agent"
   },
   "description": {
-    "short": "AI Agent built with Microsoft Agent Framework exposed via M365 Agents SDK",
-    "full": "A powerful AI agent built using Microsoft Agent Framework with tool calling capabilities, exposed through the M365 Agents SDK for Teams and M365 Copilot integration."
+    "short": "AI Agent with weather capabilities",
+    "full": "A powerful AI agent built using Microsoft Agent Framework with weather tool calling capabilities."
   },
   "accentColor": "#0078D4",
-  "copilotAgents": {
-    "customEngineAgents": [
-      {
-        "id": "{{AAD_APP_CLIENT_ID}}",
-        "type": "bot"
-      }
-    ]
-  },
   "bots": [
     {
-      "botId": "{{AAD_APP_CLIENT_ID}}",
+      "botId": "37383e12-b9de-4845-97e8-dd89ed31dbe3",
       "scopes": [
         "personal",
         "team",
@@ -47,10 +39,6 @@
             {
               "title": "weather",
               "description": "Get the current weather for a location"
-            },
-            {
-              "title": "time",
-              "description": "Get the current date and time"
             }
           ]
         }
@@ -62,6 +50,14 @@
     "messageTeamMembers"
   ],
   "validDomains": [
-    "{{BOT_DOMAIN}}"
-  ]
+    "funclqsmbshgmhab2.azurewebsites.net"
+  ],
+  "copilotAgents": {
+    "declarativeAgents": [
+      {
+        "id": "weatherAgent",
+        "file": "weatherAgent.json"
+      }
+    ]
+  }
 }

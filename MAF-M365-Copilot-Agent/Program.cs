@@ -43,6 +43,16 @@ var builder = FunctionsApplication
 // Register HttpClientFactory for MAFAdapter
 builder.Services.AddHttpClient();
 
+// Register Bot Framework authentication config
+// When MicrosoftAppId is empty, authentication is disabled (local development)
+var authConfig = new BotAuthConfig
+{
+    MicrosoftAppId = Environment.GetEnvironmentVariable("MicrosoftAppId"),
+    MicrosoftAppPassword = Environment.GetEnvironmentVariable("MicrosoftAppPassword"),
+    MicrosoftAppTenantId = Environment.GetEnvironmentVariable("MicrosoftAppTenantId")
+};
+builder.Services.AddSingleton(authConfig);
+
 // Register IChatClient and tools for direct invocation from MAFAdapter (no HTTP)
 builder.Services.AddSingleton(chatClient);
 builder.Services.AddSingleton(tools);
