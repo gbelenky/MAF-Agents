@@ -54,6 +54,105 @@ A **Microsoft Agent Framework (MAF)** agent deployed on **Azure Functions** that
 └──────────────────────────────┘  └──────────────────────────────────┘
 ```
 
+## Why Bot Framework?
+
+This project uses **Azure Bot Service** and the **Bot Framework protocol** as the messaging layer for several important reasons:
+
+### 1. M365 Copilot Requires Bot Framework
+**M365 Copilot only supports custom agents via Bot Framework.** When you create a Custom Engine Agent for M365 Copilot, messages are routed through Azure Bot Service to your endpoint using the Bot Framework protocol (`/api/messages`). There is no alternative—if you want your agent in M365 Copilot, you need Bot Framework.
+
+### 2. Microsoft Teams Integration  
+Teams also uses Bot Framework as its messaging backbone. By building on Bot Framework, your agent automatically works across Teams (personal chats, channels, group chats) without additional code.
+
+### 3. Multi-Channel from One Endpoint
+Azure Bot Service acts as a **channel router**, translating native channel protocols (Teams, Slack, Web Chat, etc.) into a unified Bot Framework Activity format. Your code handles one protocol, and Bot Service handles the rest.
+
+### 4. Built-in Authentication
+Bot Framework provides **JWT token validation** for securing your endpoint. When Azure Bot Service forwards messages to your function, it includes a signed JWT token proving the request came from a legitimate channel.
+
+### 5. Proactive Messaging
+Bot Framework's `serviceUrl` pattern enables **proactive replies**—your agent can send responses back to the conversation asynchronously. This is essential for long-running operations where you need to reply after processing completes.
+
+```
+Without Bot Framework:        With Bot Framework:
+┌──────────────────┐          ┌──────────────────┐
+│   Your Agent     │          │   Your Agent     │
+│   (HTTP API)     │          │   (HTTP API)     │
+└────────┬─────────┘          └────────┬─────────┘
+         │                             │
+         ▼                             ▼
+    ❌ Teams                 ┌──────────────────┐
+    ❌ M365 Copilot          │  Azure Bot Svc   │
+    ❌ Web Chat              └────────┬─────────┘
+    ✅ Custom clients only            │
+                             ┌────────┴─────────┐
+                             ▼        ▼         ▼
+                          Teams   M365 Cop   Web Chat
+```
+
+## Why Not Full M365 Agents SDK?
+
+The **M365 Agents SDK** (`Microsoft.Agents.*` packages) provides excellent abstractions for building bots, including built-in authentication via `AddAgentAspNetAuthentication()`. However, **this project uses Azure Functions isolated worker**, which has a critical incompatibility:
+
+### The Problem: ASP.NET Core vs Azure Functions
+
+| Feature | ASP.NET Core | Azure Functions (Isolated) |
+|---------|--------------|---------------------------|
+| **SDK Auth Helper** | ✅ `AddAgentAspNetAuthentication()` | ❌ Not supported |
+| **DI Pipeline** | `IServiceCollection` + middleware | `HostBuilder` (different pipeline) |
+| **Request Type** | `HttpRequest` | `HttpRequestData` |
+| **Auth Middleware** | `UseAuthentication()` / `UseAuthorization()` | Must validate manually |
+
+The M365 Agents SDK's authentication is designed for ASP.NET Core's middleware pipeline. Azure Functions isolated worker doesn't have this middleware concept—each function handles its own request independently.
+
+### What We Use from M365 Agents SDK
+
+We still leverage several M365 Agents SDK packages for non-auth purposes:
+
+| Package | What We Use |
+|---------|-------------|
+| `Microsoft.Agents.Core` | `Activity`, `ActivityTypes`, `ChannelAccount`, `Channels` models |
+| `Microsoft.Agents.Authentication` | `AuthenticationConstants` (issuer URLs, metadata endpoints) |
+
+### What We Had to Build Ourselves
+
+Since SDK auth doesn't work with Azure Functions, we implemented:
+
+1. **`BotTokenValidator.cs`** - Custom JWT validation using:
+   - `JwtSecurityTokenHandler` for token parsing
+   - OIDC configuration from Bot Framework metadata endpoint
+   - Valid issuers from `AuthenticationConstants`
+   - Audience validation against App Registration
+
+2. **`MAFAdapter.cs`** - Bot Framework protocol adapter:
+   - Extracts Bearer token from Authorization header
+   - Validates tokens via `BotTokenValidator`
+   - Parses `Activity` objects from request body
+   - Sends proactive replies to `serviceUrl`
+
+### The Trade-off
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **ASP.NET Core + SDK Auth** | One-line auth setup, SDK handles everything | No serverless, always-on hosting cost |
+| **Azure Functions + Custom Auth** | Serverless, pay-per-use, auto-scale | Must implement JWT validation manually |
+
+We chose Azure Functions for **cost efficiency** (pay only when invoked) and **auto-scaling**, accepting the trade-off of implementing authentication ourselves.
+
+### Future: When SDK Supports Functions
+
+If Microsoft adds Azure Functions support to the M365 Agents SDK (e.g., `AddAgentFunctionsAuthentication()`), this project could be simplified to:
+
+```csharp
+// Hypothetical future API
+services.AddAgentFunctionsAuthentication(options => {
+    options.ClientId = Environment.GetEnvironmentVariable("MicrosoftAppId");
+    options.TenantId = Environment.GetEnvironmentVariable("MicrosoftAppTenantId");
+});
+```
+
+Until then, `BotTokenValidator.cs` bridges the gap.
+
 ## Prerequisites
 
 ### For Local Development

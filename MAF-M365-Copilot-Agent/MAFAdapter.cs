@@ -1,17 +1,11 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.Agents.Authentication;
 using Microsoft.Agents.Core.Models;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
-using Microsoft.IdentityModel.Protocols;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using Microsoft.IdentityModel.Tokens;
-using HttpRequestData = Microsoft.Azure.Functions.Worker.Http.HttpRequestData;
 
 namespace MAFCopilotAgent;
 
@@ -28,7 +22,7 @@ public class MAFAdapter
     private readonly AIFunction[] _tools;
     private readonly string _systemInstructions;
     private readonly BotAuthConfig _authConfig;
-    private static ConfigurationManager<OpenIdConnectConfiguration>? _configManager;
+    private readonly BotTokenValidator _tokenValidator;
 
     public MAFAdapter(
         ILogger<MAFAdapter> logger, 
@@ -44,6 +38,7 @@ public class MAFAdapter
         _tools = tools;
         _systemInstructions = systemInstructions;
         _authConfig = authConfig;
+        _tokenValidator = new BotTokenValidator(authConfig, logger);
     }
 
     [Function("Messages")]
@@ -52,22 +47,14 @@ public class MAFAdapter
     {
         _logger.LogInformation("Received message at /api/messages");
 
-        // Validate Bot Framework authentication (skip in local dev when AppId is not configured)
-        if (_authConfig.IsAuthEnabled)
+        // Validate Bot Framework authentication
+        var authResult = await _tokenValidator.ValidateAsync(req);
+        if (!authResult.IsValid)
         {
-            var authResult = await ValidateBotTokenAsync(req);
-            if (!authResult.IsValid)
-            {
-                _logger.LogWarning("Authentication failed: {Reason}", authResult.Reason);
-                var unauthorizedResponse = req.CreateResponse(HttpStatusCode.Unauthorized);
-                await unauthorizedResponse.WriteStringAsync(authResult.Reason ?? "Unauthorized");
-                return unauthorizedResponse;
-            }
-            _logger.LogInformation("Authentication successful for AppId: {AppId}", authResult.AppId);
-        }
-        else
-        {
-            _logger.LogInformation("Authentication skipped (local development mode)");
+            _logger.LogWarning("Authentication failed: {Reason}", authResult.Reason);
+            var unauthorizedResponse = req.CreateResponse(HttpStatusCode.Unauthorized);
+            await unauthorizedResponse.WriteStringAsync(authResult.Reason ?? "Unauthorized");
+            return unauthorizedResponse;
         }
 
         // Parse the Bot Framework activity using M365 Agents SDK Activity model
@@ -285,104 +272,4 @@ public class MAFAdapter
         [System.Text.Json.Serialization.JsonPropertyName("expires_in")]
         public int ExpiresIn { get; set; }
     }
-
-    /// <summary>
-    /// Validates the Bot Framework JWT token from the Authorization header.
-    /// Supports both Bot Connector and Emulator tokens.
-    /// </summary>
-    private async Task<AuthValidationResult> ValidateBotTokenAsync(HttpRequestData req)
-    {
-        try
-        {
-            // Get Authorization header
-            if (!req.Headers.TryGetValues("Authorization", out var authHeaders))
-            {
-                return AuthValidationResult.Failure("Missing Authorization header");
-            }
-
-            var authHeader = authHeaders.FirstOrDefault();
-            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            {
-                return AuthValidationResult.Failure("Invalid Authorization header format");
-            }
-
-            var token = authHeader.Substring("Bearer ".Length).Trim();
-            if (string.IsNullOrEmpty(token))
-            {
-                return AuthValidationResult.Failure("Empty bearer token");
-            }
-
-            // Initialize OIDC configuration manager (cached) using SDK constants
-            _configManager ??= new ConfigurationManager<OpenIdConnectConfiguration>(
-                AuthenticationConstants.PublicAzureBotServiceOpenIdMetadataUrl,
-                new OpenIdConnectConfigurationRetriever(),
-                new HttpDocumentRetriever());
-
-            var openIdConfig = await _configManager.GetConfigurationAsync(CancellationToken.None);
-
-            // Token validation parameters using SDK constants
-            var validationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidIssuers = new[]
-                {
-                    AuthenticationConstants.BotFrameworkTokenIssuer,
-                    string.Format(AuthenticationConstants.ValidTokenIssuerUrlTemplateV1, "d6d49420-f39b-4df7-a1dc-d59a935871db"), // Bot Framework tenant
-                    string.Format(AuthenticationConstants.ValidTokenIssuerUrlTemplateV1, "f8cdef31-a31e-4b4a-93e4-5f571e91255a"), // US Gov
-                    string.Format(AuthenticationConstants.ValidTokenIssuerUrlTemplateV1, _authConfig.MicrosoftAppTenantId), // Custom tenant V1
-                    string.Format(AuthenticationConstants.ValidTokenIssuerUrlTemplateV2, _authConfig.MicrosoftAppTenantId)  // Custom tenant V2
-                },
-                ValidateAudience = true,
-                ValidAudiences = new[] { _authConfig.MicrosoftAppId },
-                ValidateLifetime = true,
-                IssuerSigningKeys = openIdConfig.SigningKeys,
-                ClockSkew = TimeSpan.FromMinutes(5)
-            };
-
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var principal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
-
-            // Extract the AppId from the token
-            var appIdClaim = principal.FindFirst("appid") ?? principal.FindFirst("azp");
-            var appId = appIdClaim?.Value ?? "unknown";
-
-            return AuthValidationResult.Success(appId);
-        }
-        catch (SecurityTokenValidationException ex)
-        {
-            _logger.LogWarning(ex, "Token validation failed");
-            return AuthValidationResult.Failure($"Token validation failed: {ex.Message}");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected error during token validation");
-            return AuthValidationResult.Failure("Authentication error");
-        }
-    }
-}
-
-/// <summary>
-/// Bot Framework authentication configuration.
-/// When MicrosoftAppId is empty/null, authentication is disabled (local development).
-/// </summary>
-public class BotAuthConfig
-{
-    public string? MicrosoftAppId { get; set; }
-    public string? MicrosoftAppPassword { get; set; }
-    public string? MicrosoftAppTenantId { get; set; }
-    
-    /// <summary>
-    /// Authentication is enabled when MicrosoftAppId is configured.
-    /// </summary>
-    public bool IsAuthEnabled => !string.IsNullOrEmpty(MicrosoftAppId);
-}
-
-public class AuthValidationResult
-{
-    public bool IsValid { get; set; }
-    public string? AppId { get; set; }
-    public string? Reason { get; set; }
-    
-    public static AuthValidationResult Success(string appId) => new() { IsValid = true, AppId = appId };
-    public static AuthValidationResult Failure(string reason) => new() { IsValid = false, Reason = reason };
 }
