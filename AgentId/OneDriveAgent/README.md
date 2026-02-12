@@ -614,6 +614,8 @@ This prevents:
 2. **No extractable secrets** (MI can't be copied to attacker's machine)
 3. **Cryptographic binding** (FIC ties "permission" to "specific deployment")
 
+**Bottom Line:** Certificate-based OAuth solves secret sprawl, but FIC + OBO adds the governance layer - admin-controlled trust, explicit user delegation, and full attribution chain in audit logs.
+
 ### Token Flow Explained
 
 The complete OBO flow involves multiple token exchanges:
