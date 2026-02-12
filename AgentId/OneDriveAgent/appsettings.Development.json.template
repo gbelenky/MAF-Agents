@@ -1,0 +1,54 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Debug",
+      "Microsoft.AspNetCore": "Information",
+      "Azure.AI": "Debug"
+    }
+  },
+
+  "Kestrel": {
+    "Endpoints": {
+      "Http": {
+        "Url": "http://localhost:3978"
+      }
+    }
+  },
+
+  "MafAgent": {
+    "FoundryEndpoint": "https://<your-foundry-endpoint>.cognitiveservices.azure.com/api/projects/<your-project-name>",
+    "ModelDeploymentName": "gpt-4o-mini"
+  },
+
+  "AgentObo": {
+    "TenantId": "<your-tenant-id>",
+    "AgentBlueprintClientId": "<your-blueprint-app-id>",
+    "AgentIdentityClientId": "<your-agent-identity-app-id>",
+    "AgentIdentityClientSecret": "<your-client-secret>",
+    "ManagedIdentityClientId": "<your-managed-identity-client-id>",
+    "TargetScope": "https://graph.microsoft.com/.default"
+  },
+
+  "Bot": {
+    "MicrosoftAppId": "<your-bot-app-id>",
+    "MicrosoftAppPassword": "<your-bot-app-secret>",
+    "MicrosoftAppTenantId": "<your-tenant-id>",
+    "OAuthConnectionName": "graph-connection"
+  },
+
+  "Connections": {
+    "BotServiceConnection": {
+      "Assembly": "Microsoft.Agents.Authentication.Msal",
+      "Type": "MsalAuth",
+      "Settings": {
+        "AuthType": "ClientSecret",
+        "TenantId": "<your-tenant-id>",
+        "ClientId": "<your-bot-app-id>",
+        "ClientSecret": "<your-bot-app-secret>",
+        "Scopes": [
+          "https://api.botframework.com/.default"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: onedrive-agent
+metadata:
+  template: onedrive-agent-obo
+
+# Infrastructure provisioning hooks
+hooks:
+  # After provisioning, create the Standard Agent and configure Bot (if enabled)
+  postprovision:
+    windows:
+      shell: pwsh
+      run: |
+        Push-Location src
+        Write-Host "Installing dependencies with uv..."
+        uv sync
+        
+        Write-Host "Creating Standard Agent..."
+        uv run python agent_manager.py create
+        Pop-Location
+        
+        # Note: Bot OAuth is configured by Entra Admin via 04-admin-bot-oauth.sh
+    posix:
+      shell: sh
+      run: |
+        cd src
+        echo "Installing dependencies with uv..."
+        uv sync
+        
+        echo "Creating Standard Agent..."
+        uv run python agent_manager.py create
+        cd ..
+        
+        # Note: Bot OAuth is configured by Entra Admin via 04-admin-bot-oauth.sh
+
+  # Before destroying, clean up the agent
+  predown:
+    windows:
+      shell: pwsh
+      run: |
+        Push-Location src
+        if (Test-Path .venv) {
+          Write-Host "Deleting Standard Agent..."
+          uv run python agent_manager.py delete
+        }
+        Pop-Location
+    posix:
+      shell: sh
+      run: |
+        cd src
+        if [ -d .venv ]; then
+          echo "Deleting Standard Agent..."
+          uv run python agent_manager.py delete
+        fi
+
+# Service definitions
+services:
+  # OneDrive Agent API (.NET 9)
+  api:
+    project: ./OneDriveAgent
+    language: dotnet
+    host: appservice

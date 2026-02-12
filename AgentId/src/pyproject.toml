@@ -1,0 +1,12 @@
+[project]
+name = "onedrive-agent-manager"
+version = "0.1.0"
+description = "Standard Agent manager for OneDrive Agent"
+requires-python = ">=3.10"
+dependencies = [
+    "azure-ai-projects>=2.0.0b3",
+    "azure-identity>=1.19.0",
+]
+
+[dependency-groups]
+dev = []

@@ -1,0 +1,78 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+uv.lock
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.vs/
+.vs/
+*.DotSettings.user
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Secrets and local config - DO NOT COMMIT
+appsettings.Development.json
+appsettings.*.local.json
+secrets.json
+
+# Handoff files with secrets - DO NOT COMMIT
+handoff/
+01-admin-output-*.txt
+02-dev-handoff-*.txt
+phase1-output-*.txt
+admin-input-*.txt
+.env
+.env.local
+*.pfx
+*.p12
+
+# Deployment logs with environment values - DO NOT COMMIT
+deployment-logs/
+
+# User secrets (if any local files)
+usersecrets/
+
+# Azure
+.azure/
+*.azd
+
+# Logs
+logs/
+logs*/
+newlogs/
+webapp-logs*/
+*.log
+*.zip
+
+# Build outputs
+publish/
+deploy.zip
+
+# Teams manifest (generated files - use templates instead)
+teams-manifest/manifest.json
+teams-manifest/*.zip
+
+# Script outputs
+scripts/phase1-output-*.txt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test outputs
+TestResults/
+coverage/

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.19",
+  "version": "{{MANIFEST_VERSION}}",
+  "id": "{{BOT_APP_ID}}",
+  "developer": {
+    "name": "Your Organization",
+    "websiteUrl": "https://{{APP_HOSTNAME}}",
+    "privacyUrl": "https://privacy.microsoft.com/privacystatement",
+    "termsOfUseUrl": "https://www.microsoft.com/legal/terms-of-use"
+  },
+  "name": {
+    "short": "{{AGENT_NAME}}",
+    "full": "{{AGENT_NAME_FULL}}"
+  },
+  "description": {
+    "short": "AI assistant for OneDrive files",
+    "full": "An AI-powered assistant that helps you browse, search, and manage your OneDrive files. Ask questions like 'Show me my recent documents' or 'List files in the Projects folder'."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#0078D4",
+  "bots": [
+    {
+      "botId": "{{BOT_APP_ID}}",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team", "groupChat"],
+          "commands": [
+            {
+              "title": "list",
+              "description": "List files in a folder"
+            },
+            {
+              "title": "search",
+              "description": "Search for files"
+            },
+            {
+              "title": "info",
+              "description": "Show OneDrive storage info"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "{{APP_HOSTNAME}}",
+    "token.botframework.com"
+  ],
+  "webApplicationInfo": {
+    "id": "{{BOT_APP_ID}}",
+    "resource": "api://botid-{{BOT_APP_ID}}"
+  }
+}
