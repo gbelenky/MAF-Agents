@@ -16,14 +16,14 @@ This project requires coordination between **developers** and **Entra ID adminis
 
 | Task | Who | Script | Notes |
 |------|-----|--------|-------|
-| Create AI Foundry project | Developer | `azd up` | Bicep automation |
-| Deploy .NET API to App Service | Developer | `azd up` | Bicep automation |
-| Create User-Assigned Managed Identity | Developer | `azd up` | Bicep automation |
+| Create AI Foundry project | Developer | `azd provision` | Bicep automation |
+| Deploy .NET API to App Service | Developer | `azd deploy` | After provision |
+| Create User-Assigned Managed Identity | Developer | `azd provision` | Bicep automation |
 | Create Blueprint + Agent Identity Apps | Admin | `01-admin-create-apps.sh` | Full automation |
 | Add Graph permissions + admin consent | Admin | `01-admin-create-apps.sh` | Full automation |
-| Create Federated Identity Credential | Admin | `03-admin-create-fic.sh` | After `azd up` |
+| Create Federated Identity Credential | Admin | `03-admin-create-fic.sh` | After `azd provision` |
 | Configure Bot OAuth (optional) | Admin | `04-admin-bot-oauth.sh` | For Teams |
-| Configure app settings | Developer | `azd up` | Automatic |
+| Configure app settings | Developer | `azd deploy` | Automatic |
 
 *Admin = Entra ID admin (or developer with Application.ReadWrite.All permission)*
 
@@ -112,7 +112,7 @@ This project requires coordination between **developers** and **Entra ID adminis
 - [ ] Confirmation that admin consent was granted
 
 **Developer provides to Admin:**
-- [ ] Managed Identity Client ID (after `azd up`)
+- [ ] Managed Identity Client ID (after `azd provision`)
 - [ ] Tenant ID (if not already known)
 
 **Admin completes after deployment:**
@@ -213,7 +213,7 @@ This guide provides a complete, role-based deployment workflow. Follow these pha
 │                                                                                 │
 │  PHASE 2: DEVELOPER                                                             │
 │  ┌─────────────────────────────────────────────────────────────────────────┐   │
-│  │ Clone repo -> Configure azd env -> Run 'azd up' -> Note MI Client ID      │   │
+│  │ Clone repo -> Configure azd env -> Run 'azd provision' -> Note MI ID     │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 │                              │                                                  │
 │                              v Handoff: MI Client ID                            │
@@ -283,9 +283,13 @@ azd env set BLUEPRINT_CLIENT_ID "<from-admin>"
 azd env set AGENT_IDENTITY_CLIENT_ID "<from-admin>"
 azd env set AGENT_IDENTITY_CLIENT_SECRET "<from-admin>"
 
-# Deploy
-azd up
+# Deploy infrastructure
+azd provision    # Infrastructure only (recommended for local dev)
+# OR
+azd up           # Infrastructure + deploy code
 ```
+
+> **Local-First Development:** Use `azd provision` to create infrastructure without deploying code. Then use devtunnel + F5 for local debugging. Deploy with `azd deploy` when ready for production.
 
 This creates: Resource Group, AI Services, Foundry Project, User-Assigned Managed Identity, App Service, and RBAC role assignments.
 
@@ -798,7 +802,7 @@ AgentId/
 | Script | Role | Purpose |
 |--------|------|---------|
 | `01-admin-create-apps.sh` | Entra Admin | Creates Blueprint + Agent Identity apps, permissions, consent |
-| `02-dev-generate-handoff.sh` | Developer | Generates handoff file for admin after azd up |
+| `02-dev-generate-handoff.sh` | Developer | Generates handoff file for admin after azd provision |
 | `03-admin-create-fic.sh` | Entra Admin | Creates Federated Identity Credential |
 | `04-admin-bot-oauth.sh` | Entra Admin | Configures Bot OAuth connection |
 | `05-dev-teams-manifest.sh` | Developer | Generates Teams app package |
@@ -960,6 +964,7 @@ This section covers how to build, run, and test the agent locally.
 2. **Azure CLI** logged in: `az login --tenant <your-tenant-id>`
 3. **Deployment completed** (you need the app IDs and secrets from deployment)
 4. **Dev Tunnel** (optional, for Agents Playground testing): `winget install Microsoft.devtunnel`
+5. **Azure OpenAI RBAC access** - Your Azure CLI identity needs `Cognitive Services OpenAI User` role on the AI Services resource (see Step 1.5 below)
 
 ### Step 1: Configure appsettings.Development.json
 
@@ -975,7 +980,7 @@ Edit `appsettings.Development.json` with values from your deployment:
 ```json
 {
   "MafAgent": {
-    "FoundryEndpoint": "https://ai-<env>.cognitiveservices.azure.com/api/projects/prj-ai-<env>",
+    "FoundryEndpoint": "https://ai-<env>.cognitiveservices.azure.com/",
     "ModelDeploymentName": "gpt-4o-mini"
   },
   "AgentObo": {
@@ -1008,7 +1013,24 @@ Edit `appsettings.Development.json` with values from your deployment:
 }
 ```
 
-> **Tip:** Run `02-dev-generate-handoff.sh` to see all required values after `azd up`.
+> **Tip:** Run `02-dev-generate-handoff.sh` to see all required values after `azd provision` (or `azd up`).
+
+### Step 1.5: Grant Azure OpenAI RBAC Access
+
+The agent uses `DefaultAzureCredential` to authenticate with Azure OpenAI. For local development, this uses your Azure CLI identity. You need the `Cognitive Services OpenAI User` role:
+
+```bash
+# Get your subscription ID
+subId=$(az account show --query id -o tsv)
+
+# Grant role (replace <env> with your environment name, e.g., onedriveagent10)
+az role assignment create \
+  --assignee "$(az account show --query user.name -o tsv)" \
+  --role "Cognitive Services OpenAI User" \
+  --scope "/subscriptions/$subId/resourceGroups/rg-<env>/providers/Microsoft.CognitiveServices/accounts/ai-<env>"
+```
+
+> **Note:** If you get a 401 error when calling the agent, check this RBAC assignment first.
 
 ### Step 2: Build and Run
 
@@ -1172,7 +1194,7 @@ azd up
 
 **Post-deployment: Create Federated Identity Credential**
 
-After `azd up` completes, have the Entra Admin run:
+After `azd provision` (or `azd up`) completes, have the Entra Admin run:
 ```bash
 ./scripts/03-admin-create-fic.sh --blueprint-id <blueprint-id> --mi-client-id $(azd env get-value MANAGED_IDENTITY_CLIENT_ID)
 ```
@@ -1326,6 +1348,7 @@ For agents requiring **OBO with custom logic** (like this OneDrive agent), the M
 | "169.254.169.254 unreachable" | MI only works in Azure | Use client secret for local development |
 | "Admin consent required" | Permissions not consented | Run `az ad app permission admin-consent` |
 | "Access denied" | Missing permission | Add required Graph delegated permissions |
+| "401 Unauthorized" from OpenAI | Missing RBAC role | Grant `Cognitive Services OpenAI User` role to your Azure CLI identity (see Step 1.5) |
 | Health endpoint returns 404 | App listening on wrong port | Set `ASPNETCORE_URLS=http://0.0.0.0:8080` in App Service settings |
 | No response from bot | `/api/messages` not mapped | Ensure `app.MapPost("/api/messages", ...)` is in Program.cs |
 | SSO shows sign-in card | Teams clients not pre-authorized | Pre-authorize Teams client IDs (see Phase 5.2) |

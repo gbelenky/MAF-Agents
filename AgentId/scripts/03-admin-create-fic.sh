@@ -4,7 +4,7 @@
 # =============================================================================
 # Role: ENTRA ADMIN
 # Purpose: Link Managed Identity to Agent Identity app for Bot auth
-# Run: AFTER developer runs 'azd up' and shares 02-dev-handoff-{env}.txt
+# Run: AFTER developer runs 'azd provision' (or 'azd up') and shares 02-dev-handoff-{env}.txt
 #
 # Input: 02-dev-handoff-{env}.txt (auto-detected) OR command-line args
 #
@@ -12,7 +12,7 @@
 #   - Azure CLI installed
 #   - Logged in with Entra Admin privileges
 #   - Step 1 completed (Agent Identity app exists)
-#   - Developer completed azd up (Managed Identity created)
+#   - Developer completed azd provision (Managed Identity created)
 #
 # Usage:
 #   ./03-admin-create-fic.sh [options]

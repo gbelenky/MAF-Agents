@@ -12,7 +12,7 @@
 #   - Azure CLI installed
 #   - Logged in with Entra Admin privileges
 #   - Bot App Registration exists (Agent Identity from Step 1)
-#   - Bot Service exists in Azure (from azd up)
+#   - Bot Service exists in Azure (from azd provision)
 #
 # Usage:
 #   ./04-admin-bot-oauth.sh [options]

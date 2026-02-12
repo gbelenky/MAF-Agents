@@ -4,7 +4,7 @@
 # =============================================================================
 # Role: DEVELOPER
 # Purpose: Generate file with azd deployment values for Entra Admin
-# Run: AFTER 'azd up' completes
+# Run: AFTER 'azd provision' (or 'azd up') completes
 #
 # Output: 02-dev-handoff-{env}.txt → share with Entra Admin
 #
@@ -44,7 +44,7 @@ echo -e "${GREEN}✓ Using azd environment: $ENV_NAME${NC}"
 
 # Get required values
 MANAGED_IDENTITY_CLIENT_ID=$(azd env get-value MANAGED_IDENTITY_CLIENT_ID 2>/dev/null) || {
-    echo -e "${RED}Error: MANAGED_IDENTITY_CLIENT_ID not found. Run 'azd up' first.${NC}"
+    echo -e "${RED}Error: MANAGED_IDENTITY_CLIENT_ID not found. Run 'azd provision' first.${NC}"
     exit 1
 }
 
@@ -86,10 +86,10 @@ TENANT_ID=$TENANT_ID
 # Agent Identity (from Step 1 - needed for FIC and OAuth)
 AGENT_IDENTITY_CLIENT_ID=$AGENT_IDENTITY_CLIENT_ID
 
-# Managed Identity (from azd up - needed for FIC)
+# Managed Identity (from azd provision - needed for FIC)
 MANAGED_IDENTITY_CLIENT_ID=$MANAGED_IDENTITY_CLIENT_ID
 
-# Azure Resources (from azd up - needed for Bot OAuth)
+# Azure Resources (from azd provision - needed for Bot OAuth)
 RESOURCE_GROUP=$RESOURCE_GROUP
 BOT_NAME=$BOT_NAME
 APP_SERVICE_NAME=$APP_SERVICE_NAME

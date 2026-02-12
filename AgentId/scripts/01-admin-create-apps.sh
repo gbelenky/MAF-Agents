@@ -4,7 +4,7 @@
 # =============================================================================
 # Role: ENTRA ADMIN
 # Purpose: Create Blueprint and Agent Identity app registrations
-# Run: BEFORE developer runs 'azd up'
+# Run: BEFORE developer runs 'azd provision' (or 'azd up')
 #
 # Output: 01-admin-output-{env}.txt → share with Developer
 #
@@ -385,7 +385,7 @@ echo ""
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo "NEXT STEPS:"
-echo "  1. Run: azd up"
+echo "  1. Run: azd provision (or azd up for full deploy)"
 echo "  2. Then run: bash scripts/03-admin-create-fic.sh"
 echo "     (It will auto-detect the Managed Identity Client ID)"
 echo ""

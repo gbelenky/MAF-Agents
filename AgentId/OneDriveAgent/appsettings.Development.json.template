@@ -16,7 +16,7 @@
   },
 
   "MafAgent": {
-    "FoundryEndpoint": "https://<your-foundry-endpoint>.cognitiveservices.azure.com/api/projects/<your-project-name>",
+    "FoundryEndpoint": "https://ai-<env>.cognitiveservices.azure.com/",
     "ModelDeploymentName": "gpt-4o-mini"
   },
 
