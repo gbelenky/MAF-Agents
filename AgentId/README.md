@@ -91,6 +91,41 @@ bash scripts/04-admin-bot-oauth.sh \
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
+## Identity Approach: Working-Version vs Foundry Agent ID
+
+This solution uses a **single-app approach** (Working-Version) rather than Microsoft's **two-tier Foundry Agent ID** approach. Both are functionally equivalent for OBO scenarios.
+
+### Foundry Agent ID (2-tier):
+```
+Blueprint (App Registration)
+├── Permissions (Graph delegated)
+├── FIC (links to MI)
+└── Agent Identity (child app)
+    └── Runtime identity for token exchange
+```
+
+### Working-Version (1-tier):
+```
+Agent Identity App (App Registration)
+├── Permissions (Graph delegated)
+├── FIC (links to MI)
+└── Used directly for token exchange
+```
+
+### What's the same:
+- Both use an App Registration as the `client_id` for OBO
+- Both have FIC linking App Service MI → App Registration
+- Both define delegated permissions on the app
+- Both exchange user token for Graph token via OBO
+
+### What's different:
+- Foundry has 2 apps (Blueprint parent → Agent Identity child)
+- Working-version has 1 app (serves both purposes)
+- Foundry marks apps with special "Agent" type metadata
+- Working-version is a regular app registration
+
+> **Why Working-Version?** The Foundry Agent ID approach currently blocks API modifications to Blueprints, requiring manual Portal steps. The Working-Version approach is fully scriptable and provides identical OBO functionality.
+
 ## Project Structure
 
 ```
