@@ -32,6 +32,11 @@ builder.Services.AddApplicationInsightsTelemetry(options =>
     options.EnableDebugLogger = true;
 });
 
+// Set Cloud_RoleName for multi-component filtering in App Insights
+// This enables filtering this component vs AI Services logs in the same workspace
+builder.Services.AddSingleton<Microsoft.ApplicationInsights.Extensibility.ITelemetryInitializer>(sp =>
+    new CloudRoleNameInitializer("OneDriveAgent"));
+
 // =============================================================================
 // Configure MAF Agent Service with OneDrive tools
 // =============================================================================
@@ -168,5 +173,24 @@ public record ChatResponse
     /// Timestamp of the response.
     /// </summary>
     public DateTime Timestamp { get; init; }
+}
+
+/// <summary>
+/// Sets Cloud_RoleName for Application Insights telemetry.
+/// Enables filtering by component in multi-service scenarios.
+/// </summary>
+public class CloudRoleNameInitializer : Microsoft.ApplicationInsights.Extensibility.ITelemetryInitializer
+{
+    private readonly string _roleName;
+
+    public CloudRoleNameInitializer(string roleName)
+    {
+        _roleName = roleName;
+    }
+
+    public void Initialize(Microsoft.ApplicationInsights.Channel.ITelemetry telemetry)
+    {
+        telemetry.Context.Cloud.RoleName = _roleName;
+    }
 }
 

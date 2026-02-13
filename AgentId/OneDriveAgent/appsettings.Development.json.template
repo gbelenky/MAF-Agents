@@ -7,6 +7,10 @@
     }
   },
 
+  "ApplicationInsights": {
+    "ConnectionString": "<from: az monitor app-insights component show --app appi-<env> --resource-group rg-<env> --query connectionString -o tsv>"
+  },
+
   "Kestrel": {
     "Endpoints": {
       "Http": {

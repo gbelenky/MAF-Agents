@@ -63,6 +63,17 @@ module managedIdentity 'app/identity/managed-identity.bicep' = {
   }
 }
 
+// Monitoring (Log Analytics + Application Insights)
+// Defined before AI Services so we can pass the workspace ID for diagnostics
+module monitoring 'app/monitoring/log-analytics.bicep' = if (enableMonitoring) {
+  name: 'monitoring'
+  scope: rg
+  params: {
+    name: 'law-${environmentName}'
+    location: location
+  }
+}
+
 // AI Services with Foundry Project
 module aiServices 'app/ai/cognitive-services.bicep' = {
   name: 'ai-services'
@@ -73,16 +84,7 @@ module aiServices 'app/ai/cognitive-services.bicep' = {
     chatModelName: chatModelName
     chatModelVersion: chatModelVersion
     chatModelCapacity: chatModelCapacity
-  }
-}
-
-// Monitoring (Log Analytics + Application Insights)
-module monitoring 'app/monitoring/log-analytics.bicep' = if (enableMonitoring) {
-  name: 'monitoring'
-  scope: rg
-  params: {
-    name: 'law-${environmentName}'
-    location: location
+    logAnalyticsWorkspaceId: enableMonitoring ? monitoring.outputs.logAnalyticsId : ''
   }
 }
 
