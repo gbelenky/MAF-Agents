@@ -1,10 +1,13 @@
 # OneDrive Agent with Microsoft Entra Agent ID
 
-A hybrid **Python + .NET 9** solution using **Azure AI Foundry Standard Agents** that lists files from a user's OneDrive using the **Microsoft Entra Agent ID On-Behalf-Of (OBO) flow** for secure user delegation.
+A **.NET 9** solution using **Microsoft Agent Framework (MAF)** with **Azure OpenAI** that helps users manage their OneDrive files using the **Microsoft Entra Agent ID On-Behalf-Of (OBO) flow** for secure user delegation.
 
 **Architecture:**
-- **Python** (`src/agent_manager.py`): Creates Standard Agents visible in Foundry portal using `azure-ai-projects` SDK 2.0.0b3
-- **.NET** (`OneDriveAgent/`): Runtime application that executes function tools with OBO token flow
+- **.NET** (`OneDriveAgent/`): Bot + Agent runtime using MAF's `AIAgent` class with `AzureOpenAIClient`
+- **Azure AI Services**: Hosts model deployments (gpt-4.1-mini)
+- **Entra Agent ID**: Blueprint + Agent Identity pattern for governed OBO flow
+
+> **Note:** The `src/` folder contains alternative Python examples, but this project uses the .NET implementation.
 
 ---
 
@@ -27,6 +30,39 @@ This project requires coordination between **developers** and **Entra ID adminis
 
 *Admin = Entra ID admin (or developer with Application.ReadWrite.All permission)*
 
+### Entra ID Admin Workflow (Phase 1)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     ENTRA ID ADMIN TASKS (Phase 1)                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  Create App Registrations (required for MAF/code-first agents)          │
+│  ─────────────────────────────────────────────────────────────          │
+│  1. Create Blueprint app registration                                   │
+│     $ az ad app create --display-name "OneDrive-Agent-Blueprint"        │
+│                                                                         │
+│  2. Create Agent Identity app registration                              │
+│     $ az ad app create --display-name "OneDrive-Agent-Identity"         │
+│                                                                         │
+│  3. Configure parent-child relationship                                 │
+│     (See Entra ID setup script in /scripts/)                            │
+│                                                                         │
+│  4. Add delegated Graph permissions to Agent Identity                   │
+│     $ az ad app permission add --id <agent-identity-id> \               │
+│         --api 00000003-0000-0000-c000-000000000000 \                    │
+│         --api-permissions 10465720-29dd-4523-a11a-6a75c743c9d9=Scope    │
+│                                                                         │
+│  5. Grant admin consent (REQUIRED)                                      │
+│     $ az ad app permission admin-consent --id <agent-identity-id>       │
+│                                                                         │
+│  6. Provide app IDs to Developer                                        │
+│     -> Blueprint Client ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx        │
+│     -> Agent Identity Client ID: yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
 ### Developer Workflow
 
 ```
@@ -34,10 +70,9 @@ This project requires coordination between **developers** and **Entra ID adminis
 │                        DEVELOPER TASKS                                  │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
-│  1. Clone repository and install dependencies                           │
+│  1. Clone repository and build                                          │
 │     $ git clone <repo> && cd AgentId                                    │
-│     $ uv sync                  # Python dependencies                    │
-│     $ dotnet build             # .NET build                             │
+│     $ dotnet build OneDriveAgent                                        │
 │                                                                         │
 │  2. Set environment variables from Admin                                │
 │     $ azd env set BLUEPRINT_CLIENT_ID "<from-admin>"                    │
@@ -48,7 +83,7 @@ This project requires coordination between **developers** and **Entra ID adminis
 │                                                                         │
 │  4. Provide MI Client ID to Admin (for FIC setup)                       │
 │     $ azd env get-value MANAGED_IDENTITY_CLIENT_ID                      │
-│     -> Send this to Admin                                                │
+│     -> Send this to Admin                                               │
 │                                                                         │
 │  5. Test the deployment                                                 │
 │     $ curl $(azd env get-value APP_SERVICE_URL)/health                  │
@@ -56,66 +91,40 @@ This project requires coordination between **developers** and **Entra ID adminis
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Entra ID Admin Workflow
+### Entra ID Admin Workflow (Phase 2 - Post Deployment)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                     ENTRA ID ADMIN TASKS                                │
+│                     ENTRA ID ADMIN TASKS (Phase 2)                      │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
-│  OPTION A: Use Foundry Automation (recommended)                         │
-│  ───────────────────────────────────────────────                        │
-│  1. Have developer create agent in Foundry Portal with User Identity    │
-│  2. Note the auto-created Blueprint and Agent Identity app IDs          │
-│  3. Proceed to step 4 below                                             │
+│  After receiving MI Client ID from Developer:                           │
 │                                                                         │
-│  OPTION B: Manual App Creation                                          │
-│  ─────────────────────────────────                                      │
-│  1. Create Blueprint app registration                                   │
-│     $ az ad app create --display-name "OneDrive-Agent-Blueprint"        │
-│                                                                         │
-│  2. Create Agent Identity app registration                              │
-│     $ az ad app create --display-name "OneDrive-Agent-Identity"         │
-│                                                                         │
-│  3. Configure parent-child relationship                                 │
-│     (See Entra ID setup script in /scripts/)                            │
-│                                                                         │
-│  REQUIRED FOR BOTH OPTIONS:                                             │
-│  ──────────────────────────                                             │
-│  4. Add delegated Graph permissions to Agent Identity                   │
-│     $ az ad app permission add --id <agent-identity-id> \               │
-│         --api 00000003-0000-0000-c000-000000000000 \                    │
-│         --api-permissions 10465720-29dd-4523-a11a-6a75c743c9d9=Scope    │
-│                                                                         │
-│  5. Grant admin consent (REQUIRED)                                      │
-│     $ az ad app permission admin-consent --id <agent-identity-id>       │
-│                                                                         │
-│  6. Create Federated Identity Credential (after MI is created)          │
+│  7. Create Federated Identity Credential                                │
 │     $ az rest --method POST \                                           │
 │         --uri "https://graph.microsoft.com/v1.0/applications(appId=     │
 │                '<blueprint-id>')/federatedIdentityCredentials" \        │
 │         --body '{"name":"MI-FIC","issuer":"https://login...","subject": │
 │                 "<mi-client-id>","audiences":["api://AzureADToken..."]}'│
 │                                                                         │
-│  7. Provide app IDs to Developer                                        │
-│     -> Blueprint Client ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx         │
-│     -> Agent Identity Client ID: yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy    │
+│  8. (Optional) Configure Bot OAuth connection for Teams                 │
+│     $ ./scripts/04-admin-bot-oauth.sh                                   │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Handoff Checklist
 
-**Admin provides to Developer:**
+**Admin provides to Developer (after Phase 1):**
 - [ ] Blueprint App Client ID
 - [ ] Agent Identity App Client ID
 - [ ] Confirmation that admin consent was granted
 
-**Developer provides to Admin:**
+**Developer provides to Admin (after deployment):**
 - [ ] Managed Identity Client ID (after `azd provision`)
 - [ ] Tenant ID (if not already known)
 
-**Admin completes after deployment:**
+**Admin completes (Phase 2):**
 - [ ] Federated Identity Credential created linking MI to Blueprint
 
 ### Non-Foundry Agents (LangChain, MAF, Custom)
@@ -153,10 +162,9 @@ The Entra ID admin scripts in this project (`scripts/01-admin-create-apps.sh`, e
 5. [Project Structure](#project-structure)
 6. [Local Setup](#local-setup)
    - [Step 1: Clone and Build](#step-1-clone-and-build)
-   - [Step 2: Create Standard Agent (Python)](#step-2-create-standard-agent-python)
-   - [Step 3: Run Automated Entra ID Setup](#step-3-run-automated-entra-id-setup)
-   - [Step 4: Configure the Agent](#step-4-configure-the-agent)
-   - [Step 5: Grant Admin Consent](#step-5-grant-admin-consent)
+   - [Step 2: Run Automated Entra ID Setup](#step-2-run-automated-entra-id-setup)
+   - [Step 3: Configure the Agent](#step-3-configure-the-agent)
+   - [Step 4: Grant Admin Consent](#step-4-grant-admin-consent)
 7. [Local Development & Testing](#local-development--testing)
    - [Configure appsettings](#step-1-configure-appsettingsdevelopmentjson)
    - [Build and Run](#step-2-build-and-run)
@@ -191,7 +199,6 @@ This guide provides a complete, role-based deployment workflow. Follow these pha
 | Azure CLI installed | [Y] Required | [Y] Required |
 | Azure subscription (Contributor) | [Y] Required | |
 | .NET 9 SDK | [Y] Required | |
-| Python 3.10+ with `uv` | [Y] Required | |
 | Azure Developer CLI (`azd`) | [Y] Required | |
 | Entra ID Global Admin or App Admin | | [Y] Required |
 | Microsoft 365 license (with OneDrive) | For testing | |
@@ -753,12 +760,10 @@ Do you have M365 Copilot licenses for all users?
 
 | Requirement | Purpose |
 |-------------|---------|
-| **Python 3.10+** | Agent creation script |
-| **uv** (recommended) | Python package manager ([install](https://docs.astral.sh/uv/)) |
-| **.NET 9 SDK** | Build and run the runtime application |
+| **.NET 9 SDK** | Build and run the application |
 | **Azure CLI** | Authentication and resource management |
 | **Azure Subscription** | For Managed Identity and deployment |
-| **Azure AI Foundry Project** | AI model access (gpt-4o-mini or similar) |
+| **Azure AI Services** | Model deployments (gpt-4.1-mini or similar) |
 | **Microsoft 365 License** | OneDrive access for the test user |
 | **Entra ID Admin Access** | Create app registrations and grant consent |
 
@@ -768,16 +773,17 @@ Do you have M365 Copilot licenses for all users?
 
 ```
 AgentId/
-+-- src/                               # Python agent provisioning
-|   +-- agent_manager.py              # Creates Standard Agents via SDK
++-- src/                               # Alternative Python examples (not used)
+|   +-- agent_manager.py              # Example: AIProjectClient usage
 |   +-- pyproject.toml                # Python dependencies
-+-- OneDriveAgent/                     # .NET runtime application
++-- OneDriveAgent/                     # .NET application (main)
 |   +-- Models/
 |   |   +-- DriveModels.cs            # OneDrive API response models
 |   +-- Services/
 |   |   +-- AgentOboConfig.cs         # OBO configuration options
 |   |   +-- AgentOboTokenService.cs   # OBO token exchange (~150 lines)
-|   |   +-- FoundryAgentService.cs    # Agent runtime with function tools
+|   |   +-- MafAgentService.cs        # MAF Agent with function tools
+|   |   +-- OneDriveAgentBot.cs       # Teams bot handler
 |   |   +-- OneDriveService.cs        # Microsoft Graph client for OneDrive
 |   +-- Setup/
 |   |   +-- AgentIdentitySetup.cs     # Automated Entra ID provisioning
@@ -810,10 +816,11 @@ AgentId/
 | `cleanup-deploy.sh` | Developer | Full cleanup: Azure resources, Entra apps, azd env |
 
 **Key SDK Packages:**
-- **Python:** `azure-ai-projects` 2.0.0b3 (for Standard Agent creation)
-- **.NET:** `Azure.AI.Agents.Persistent` v1.2.0-beta.8 (for runtime execution)
+- **.NET:** `Microsoft.Agents.AI` (Microsoft Agent Framework for agent logic)
+- **.NET:** `Azure.AI.OpenAI` (Azure OpenAI client with DefaultAzureCredential)
+- **.NET:** `Microsoft.Agents.Builder` (Bot Framework integration)
 
-> **Note:** Standard Agents (created via `create_version`) are visible in the Foundry portal under Build > Agents. Classic Agents (created via `create_agent`) are NOT visible in the new portal.
+> **Note:** This project uses code-first agents defined in `MafAgentService.cs`. The agent is NOT created in Foundry portal - it's entirely in .NET code using MAF's `AIAgent` class.
 
 ---
 
@@ -826,36 +833,14 @@ AgentId/
 git clone <repository-url>
 cd AgentId
 
-# Build .NET runtime application
+# Build .NET application
 cd OneDriveAgent
 dotnet restore
 dotnet build
 cd ..
-
-# Install Python dependencies for agent creation
-cd src
-uv sync  # or: pip install -e .
-cd ..
 ```
 
-### Step 2: Create Standard Agent (Python)
-
-The agent is created using Python SDK which creates Standard Agents visible in the Foundry portal:
-
-```bash
-cd src
-
-# Set environment variables
-export PROJECT_ENDPOINT="https://<ai-services>.cognitiveservices.azure.com/api/projects/<project-name>"
-export CHAT_MODEL_DEPLOYMENT="gpt-4o-mini"
-
-# Create the agent
-uv run python agent_manager.py create
-```
-
-The agent will be visible in Foundry portal at **Build > Agents > OneDrive-Agent**.
-
-### Step 3: Run Automated Entra ID Setup
+### Step 2: Run Automated Entra ID Setup
 
 The project includes an automated setup command that creates all necessary Entra ID resources using the Microsoft Graph API.
 
@@ -903,7 +888,7 @@ NEXT STEPS:
    https://login.microsoftonline.com/<tenant-id>/adminconsent?client_id=<agent-identity-client-id>
 ```
 
-### Step 4: Configure the Agent
+### Step 3: Configure the Agent
 
 For **local development**, you need a client secret on the Agent Identity app (since Managed Identity only works in Azure).
 
@@ -939,7 +924,7 @@ az ad app credential reset --id <agent-identity-client-id> --display-name "Local
 }
 ```
 
-### Step 5: Grant Admin Consent
+### Step 4: Grant Admin Consent
 
 Grant admin consent for the Graph API permissions:
 
@@ -1176,7 +1161,6 @@ azd env set AGENT_IDENTITY_CLIENT_ID "<your-agent-identity-app-id>"
 
 # Optional: customize deployment
 azd env set APP_SERVICE_SKU "B1"           # B1, S1, P1v3, etc.
-azd env set AGENT_NAME "OneDrive-Agent"    # Standard Agent name
 
 # Provision infrastructure and deploy
 azd up
@@ -1187,9 +1171,9 @@ azd up
 | Resource | Purpose |
 |----------|---------|
 | Resource Group | `rg-{env-name}` |
-| AI Services + Foundry Project | Hosts the Standard Agent |
+| AI Services + Foundry Project | Model deployments (gpt-4.1-mini) |
 | User Assigned Managed Identity | `id-{env-name}` - for OBO token flow |
-| App Service Plan + App Service | `app-{env-name}` - hosts the .NET API |
+| App Service Plan + App Service | `app-{env-name}` - hosts the .NET app + MAF agent |
 | RBAC Role Assignments | MI gets OpenAI Contributor/User roles |
 
 **Post-deployment: Create Federated Identity Credential**
@@ -1399,13 +1383,12 @@ Decode your token at [jwt.ms](https://jwt.ms) and check:
 - [Agent OAuth Protocols](https://learn.microsoft.com/en-us/entra/agent-id/identity-platform/agent-oauth-protocols)
 - [Agent Identity Overview](https://learn.microsoft.com/en-us/entra/agent-id/overview)
 
-### Azure AI Foundry
+### Azure AI & Microsoft Agent Framework
 
-- [Azure AI Projects SDK for Python](https://pypi.org/project/azure-ai-projects/) - v2.0.0b3 (Standard Agent creation via `create_version`)
-- [Azure AI Persistent Agents client library for .NET](https://learn.microsoft.com/en-us/dotnet/api/overview/azure/ai.agents.persistent-readme) - v1.2.0-beta.8 (runtime execution)
-- [Azure AI Projects SDK for .NET](https://github.com/Azure/azure-sdk-for-net/tree/main/sdk/ai/Azure.AI.Projects)
-- [Function Calling with Agents](https://learn.microsoft.com/en-us/azure/ai-services/agents/how-to/tools/function-tool)
-- [Standard vs Classic Agents](https://learn.microsoft.com/en-us/azure/ai-services/agents/overview)
+- [Microsoft Agent Framework (MAF)](https://github.com/microsoft/agents) - Code-first agent development
+- [Azure.AI.OpenAI SDK](https://learn.microsoft.com/en-us/dotnet/api/azure.ai.openai) - Azure OpenAI client
+- [Microsoft.Extensions.AI](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.ai) - AI abstractions for .NET
+- [Function Calling with Azure OpenAI](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/function-calling)
 
 ### Built-in Tools
 
