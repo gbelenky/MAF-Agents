@@ -64,28 +64,28 @@ bash scripts/04-admin-bot-oauth.sh \
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         MICROSOFT TEAMS                                 │
+┌────────────────────────────────────────────────────────────────────────┐
+│                         MICROSOFT TEAMS                                │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    OneDrive Agent Bot                            │   │
+│  │                    OneDrive Agent Bot                           │   │
 │  │  User → Teams SSO → Bot Token Service → Graph Token → Graph API │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      AZURE APP SERVICE                                  │
+┌────────────────────────────────────────────────────────────────────────┐
+│                      AZURE APP SERVICE                                 │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    OneDrive Agent API                            │   │
-│  │  Bot Framework → MAF Agent → Azure OpenAI → Function Tools       │   │
+│  │                    OneDrive Agent API                           │   │
+│  │  Bot Framework → MAF Agent → Azure OpenAI → Function Tools      │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    MICROSOFT GRAPH API                                  │
-│  OneDrive files accessed with user's delegated permissions              │
-└─────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                    MICROSOFT GRAPH API                                 │
+│  OneDrive files accessed with user's delegated permissions             │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Identity Approach: Working-Version vs Foundry Agent ID
@@ -152,7 +152,8 @@ AgentId/
 ## Documentation
 
 See [OneDriveAgent/README.md](OneDriveAgent/README.md) for:
-- **[Local Development & Testing](OneDriveAgent/README.md#local-development--testing)** - Build, run, and debug locally
+- **[Local Development & Testing](OneDriveAgent/README.md#local-development)** - Build, run, and debug locally
+- **[Dev Tunnels for Debugging](OneDriveAgent/README.md#local-testing-with-dev-tunnels)** - Test with Teams using dev tunnels
 - Complete deployment guide (5 phases)
 - Token flow explanations
 - Troubleshooting guide
@@ -198,14 +199,14 @@ This solution creates **two separate client secrets** for different purposes:
 
 ### Option A: Same Person (Dev + Admin)
 
-When developer has Entra Admin permissions, scripts auto-detect values from azd:
+When developer has Entra Admin permissions:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  STEP 0: azd env new {env-name}                                 │
-│  STEP 1: bash scripts/01-admin-create-apps.sh                   │
-│          ↳ Creates Entra apps, saves IDs to azd env             │
-│  STEP 2: azd up                                                 │
+│  STEP 0: Choose environment name (e.g., myagent)                │
+│  STEP 1: bash scripts/01-admin-create-apps.sh --prefix myagent  │
+│          ↳ Creates Entra app, saves IDs to azd env              │
+│  STEP 2: azd env new myagent && azd up                          │
 │          ↳ Deploys Azure resources, creates Managed Identity    │
 │  STEP 3: bash scripts/03-admin-create-fic.sh                    │
 │          ↳ Links Managed Identity to Agent Identity             │
@@ -213,14 +214,14 @@ When developer has Entra Admin permissions, scripts auto-detect values from azd:
 │          ↳ Creates Bot OAuth connection with secret             │
 │  STEP 5: bash scripts/05-dev-teams-manifest.sh                  │
 │          ↳ Generates Teams app package                          │
-│  STEP 6: Upload OneDriveAgent.zip to Teams Admin Center         │
+│  STEP 6: Upload to Teams Admin Center                           │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 **Commands:**
 ```bash
+bash scripts/01-admin-create-apps.sh --prefix myagent
 azd env new myagent
-bash scripts/01-admin-create-apps.sh
 azd up
 bash scripts/03-admin-create-fic.sh
 bash scripts/04-admin-bot-oauth.sh
@@ -232,21 +233,26 @@ bash scripts/05-dev-teams-manifest.sh
 When developer and admin are different people:
 
 ```
+┌── DEVELOPER ──────────────────────────────────────────────────────┐
+│  STEP 0: Choose environment name (e.g., onedriveagent15)          │
+│          ↳ Tell Admin the name                                    │
+└───────────────────────────────────────────────────────────────────┘
+                              ↓
 ┌── ENTRA ADMIN ────────────────────────────────────────────────────┐
-│  STEP 1: bash scripts/01-admin-create-apps.sh                     │
-│          ↳ Output: handoff/01-admin-output-{env}.txt              │
+│  STEP 1: bash scripts/01-admin-create-apps.sh --prefix {name}     │
+│          ↳ Output: handoff/01-admin-output-{name}.txt             │
 │          ↳ Send file to Developer                                 │
 └───────────────────────────────────────────────────────────────────┘
                               ↓
 ┌── DEVELOPER ──────────────────────────────────────────────────────┐
-│  azd env new {env-name}                                           │
+│  azd env new {name}                                               │
 │  azd env set AGENT_IDENTITY_CLIENT_ID "<from-admin>"              │
 │                                                                   │
 │  STEP 2: azd up                                                   │
 │          ↳ Deploys Azure resources                                │
 │                                                                   │
 │  bash scripts/02-dev-generate-handoff.sh                          │
-│          ↳ Output: handoff/02-dev-handoff-{env}.txt               │
+│          ↳ Output: handoff/02-dev-handoff-{name}.txt              │
 │          ↳ Send file to Admin                                     │
 └───────────────────────────────────────────────────────────────────┘
                               ↓

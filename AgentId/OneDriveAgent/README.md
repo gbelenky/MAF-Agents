@@ -16,6 +16,8 @@ A **.NET 9** bot using **Microsoft Agent Framework (MAF)** with **Azure OpenAI**
 3. [Deployment Guide](#deployment-guide)
 4. [Project Structure](#project-structure)
 5. [Local Development](#local-development)
+   - [Configure appsettings.Development.json](#configure-appsettingsdevelopmentjson)
+   - [Local Testing with Dev Tunnels](#local-testing-with-dev-tunnels)
 6. [Token Flow Explained](#token-flow-explained)
 7. [Troubleshooting](#troubleshooting)
 
@@ -226,6 +228,107 @@ Default endpoint: `https://localhost:5001`
 curl https://localhost:5001/health
 # Should return "Healthy"
 ```
+
+### Local Testing with Dev Tunnels
+
+To test the bot locally with Teams, you need to expose your local server to the internet using dev tunnels.
+
+#### Prerequisites
+
+1. Install the dev tunnels CLI:
+   ```bash
+   # Windows (winget)
+   winget install Microsoft.devtunnel
+
+   # macOS (Homebrew)
+   brew install --cask devtunnel
+
+   # Or install the VS Code extension: "Dev Tunnels"
+   ```
+
+2. Login to dev tunnels:
+   ```bash
+   devtunnel user login
+   ```
+
+#### Create a Persistent Dev Tunnel
+
+Create a named tunnel for your bot (only needed once):
+
+```bash
+# Create a persistent tunnel with anonymous access
+devtunnel create --name onedrive-bot --allow-anonymous
+
+# Add a port mapping for your local bot (port 5001)
+devtunnel port create onedrive-bot --port-number 5001 --protocol https
+```
+
+#### Start the Tunnel
+
+```bash
+# Start the tunnel (run this in a separate terminal)
+devtunnel host onedrive-bot
+
+# Output will show the tunnel URL, e.g.:
+# Connect via browser: https://abc123.devtunnels.ms
+```
+
+#### Update the Bot Messaging Endpoint
+
+Update the Azure Bot's messaging endpoint to point to your dev tunnel:
+
+```bash
+# Get your environment name
+ENV_NAME=$(azd env get-value AZURE_ENV_NAME)
+TUNNEL_URL="https://<your-tunnel-id>.devtunnels.ms"  # From devtunnel host output
+
+# Update the Bot messaging endpoint
+az bot update \
+    --name "bot-${ENV_NAME}" \
+    --resource-group "rg-${ENV_NAME}" \
+    --endpoint "${TUNNEL_URL}/api/messages"
+```
+
+Or manually in the Azure Portal:
+1. Go to **Azure Bot** resource → **Configuration**
+2. Change **Messaging endpoint** to: `https://<your-tunnel-id>.devtunnels.ms/api/messages`
+3. Click **Apply**
+
+#### Run and Debug Locally
+
+1. Start the dev tunnel in one terminal:
+   ```bash
+   devtunnel host onedrive-bot
+   ```
+
+2. Run the bot in another terminal (or VS Code debugger):
+   ```bash
+   cd OneDriveAgent
+   dotnet run
+   ```
+
+3. Open Teams and chat with your bot - requests will route to your local machine
+
+#### Restore Production Endpoint
+
+After debugging, restore the Azure endpoint:
+
+```bash
+ENV_NAME=$(azd env get-value AZURE_ENV_NAME)
+APP_URL=$(az webapp show --name "app-${ENV_NAME}" --resource-group "rg-${ENV_NAME}" --query "defaultHostName" -o tsv)
+
+az bot update \
+    --name "bot-${ENV_NAME}" \
+    --resource-group "rg-${ENV_NAME}" \
+    --endpoint "https://${APP_URL}/api/messages"
+```
+
+#### Dev Tunnel Tips
+
+- **Persistent tunnels**: Use `devtunnel create --name <name>` for consistent URLs across sessions
+- **VS Code integration**: Use the Dev Tunnels extension to manage tunnels from the IDE
+- **Anonymous access**: `--allow-anonymous` lets the Bot Framework reach your tunnel without auth
+- **Multiple ports**: You can add more ports if needed (e.g., for a frontend)
 
 ---
 
