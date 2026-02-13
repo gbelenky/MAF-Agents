@@ -21,9 +21,6 @@ param userAssignedIdentityClientId string
 @description('Azure AD Tenant ID')
 param tenantId string
 
-@description('Blueprint App Client ID')
-param blueprintClientId string
-
 @description('Agent Identity App Client ID')
 param agentIdentityClientId string
 
@@ -89,27 +86,6 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'AZURE_CLIENT_ID'
           value: userAssignedIdentityClientId
-        }
-        // Agent OBO configuration
-        {
-          name: 'AgentObo__TenantId'
-          value: tenantId
-        }
-        {
-          name: 'AgentObo__AgentBlueprintClientId'
-          value: blueprintClientId
-        }
-        {
-          name: 'AgentObo__AgentIdentityClientId'
-          value: agentIdentityClientId
-        }
-        {
-          name: 'AgentObo__ManagedIdentityClientId'
-          value: userAssignedIdentityClientId
-        }
-        {
-          name: 'AgentObo__TargetScope'
-          value: targetScope
         }
         // MAF Agent configuration
         {

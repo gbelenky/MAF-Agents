@@ -28,9 +28,6 @@ param appServiceSku string = 'B1'
 @description('Azure AD Tenant ID')
 param tenantId string = subscription().tenantId
 
-@description('Blueprint App Client ID (from Entra ID setup script)')
-param blueprintClientId string
-
 @description('Agent Identity App Client ID (from Entra ID setup script)')
 param agentIdentityClientId string
 
@@ -119,7 +116,6 @@ module appService 'app/web/app-service.bicep' = {
     userAssignedIdentityId: managedIdentity.outputs.id
     userAssignedIdentityClientId: managedIdentity.outputs.clientId
     tenantId: tenantId
-    blueprintClientId: blueprintClientId
     agentIdentityClientId: agentIdentityClientId
     foundryEndpoint: aiServices.outputs.aiServicesEndpoint
     modelDeploymentName: aiServices.outputs.chatModelDeploymentName

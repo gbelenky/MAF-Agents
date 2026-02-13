@@ -1,6 +1,6 @@
-# OneDrive Agent with Microsoft Entra Agent ID
+# OneDrive Agent with OBO Authentication
 
-An AI-powered OneDrive assistant that runs in **Microsoft Teams** using the **Microsoft Entra Agent ID On-Behalf-Of (OBO) flow** for secure user delegation.
+An AI-powered OneDrive assistant that runs in **Microsoft Teams** using the **On-Behalf-Of (OBO) flow** with Entra ID app registration for secure user delegation.
 
 ## Quick Start
 
@@ -12,11 +12,8 @@ git clone <repo> && cd AgentId
 uv sync          # Python dependencies (for agent management)
 dotnet build     # .NET build
 
-# 2. Get app IDs from your Entra Admin
-azd env set BLUEPRINT_CLIENT_ID "<from-admin>"
+# 2. Get app ID from your Entra Admin (from handoff file)
 azd env set AGENT_IDENTITY_CLIENT_ID "<from-admin>"
-azd env set ENABLE_BOT "true"
-azd env set BOT_MICROSOFT_APP_ID "<same-as-agent-identity-id>"
 
 # 3. Deploy to Azure
 azd up
@@ -44,10 +41,10 @@ bash scripts/01-admin-create-apps.sh
 ```
 
 This creates:
-- Blueprint app registration
-- Agent Identity app with `access_as_user` scope  
-- Graph API permissions (`Files.Read`, `Files.ReadWrite`, `User.Read`)
+- Agent Identity app registration with `access_as_user` scope  
+- Graph API delegated permissions (`Files.Read`, `Files.ReadWrite`, `User.Read`)
 - Pre-authorized Teams clients for SSO
+- Saves output to `handoff/01-admin-output-{env}.txt`
 
 **After developer runs `azd up`, complete FIC setup:**
 
@@ -163,12 +160,12 @@ See [OneDriveAgent/README.md](OneDriveAgent/README.md) for:
 
 ## Deployment Steps Overview
 
-| Step | Command | Role | Purpose | Handoff File |
-|------|---------|------|---------|--------------|
-| 0 | `azd env new {env}` | Developer | Create azd environment | - |
-| 1 | `01-admin-create-apps.sh` | Entra Admin | Create Entra app registrations | `handoff/01-admin-output-{env}.txt` → Dev |
-| 2 | `azd up` | Developer | Deploy Azure resources | - |
-| - | `02-dev-generate-handoff.sh` | Developer | (Optional) Generate handoff for admin | `handoff/02-dev-handoff-{env}.txt` → Admin |
+| Step | Command | Role | Purpose | Handoff |
+|------|---------|------|---------|---------|
+| 0 | Choose environment name | Developer | Decide name (e.g., `onedriveagent15`) | Tell Admin the name |
+| 1 | `01-admin-create-apps.sh --prefix {name}` | Entra Admin | Create app registration | `handoff/01-admin-output-*.txt` → Dev |
+| 2 | `azd env new {name}` + `azd up` | Developer | Deploy Azure resources | - |
+| - | `02-dev-generate-handoff.sh` | Developer | (Optional) Generate handoff | `handoff/02-dev-handoff-*.txt` → Admin |
 | 3 | `03-admin-create-fic.sh` | Entra Admin | Create Federated Identity Credential | - |
 | 4 | `04-admin-bot-oauth.sh` | Entra Admin | Configure bot OAuth connection | - |
 | 5 | `05-dev-teams-manifest.sh` | Developer | Generate Teams app package | `teams-manifest/OneDriveAgent.zip` |
@@ -243,10 +240,7 @@ When developer and admin are different people:
                               ↓
 ┌── DEVELOPER ──────────────────────────────────────────────────────┐
 │  azd env new {env-name}                                           │
-│  azd env set BLUEPRINT_CLIENT_ID "<from-admin>"                   │
 │  azd env set AGENT_IDENTITY_CLIENT_ID "<from-admin>"              │
-│  azd env set BOT_MICROSOFT_APP_ID "<from-admin>"                  │
-│  azd env set ENABLE_BOT "true"                                    │
 │                                                                   │
 │  STEP 2: azd up                                                   │
 │          ↳ Deploys Azure resources                                │

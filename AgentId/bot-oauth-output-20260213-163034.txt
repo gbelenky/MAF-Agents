@@ -1,0 +1,14 @@
+# Bot OAuth Configuration Output
+# Generated: Fri, Feb 13, 2026  4:30:34 PM
+# ================================
+
+BOT_APP_ID=21a9ffbb-5d3f-4579-a050-7a6c9ca8f607
+OAUTH_CONNECTION_NAME=graph-connection
+TOKEN_EXCHANGE_URL=api://botid-21a9ffbb-5d3f-4579-a050-7a6c9ca8f607
+SCOPES=Files.Read Files.ReadWrite User.Read openid profile
+TENANT_ID=cbe03044-c23b-46df-93a5-c018d51915d8
+
+# NOTE: Client secret is NOT saved for security.
+# If you need it, generate a new one with:
+#   az ad app credential reset --id 21a9ffbb-5d3f-4579-a050-7a6c9ca8f607 --display-name "New Secret" --years 2
+

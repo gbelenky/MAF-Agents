@@ -65,8 +65,7 @@ echo ""
 
 echo -e "${YELLOW}WARNING: This will permanently delete:${NC}"
 echo "  - Resource group: rg-$ENV_NAME (and all Azure resources)"
-echo "  - App registration: ${ENV_NAME}-Blueprint"
-echo "  - App registration: ${ENV_NAME}-Identity"
+echo "  - App registration: ${ENV_NAME}-Agent"
 echo "  - azd environment: $ENV_NAME"
 echo ""
 
@@ -82,7 +81,7 @@ fi
 echo ""
 
 # 1. Delete Azure resource group
-echo -e "${BLUE}[1/4] Deleting Azure resource group...${NC}"
+echo -e "${BLUE}[1/3] Deleting Azure resource group...${NC}"
 RESOURCE_GROUP="rg-$ENV_NAME"
 if az group exists --name "$RESOURCE_GROUP" 2>/dev/null | grep -q "true"; then
     az group delete --name "$RESOURCE_GROUP" --yes --no-wait
@@ -91,28 +90,22 @@ else
     echo -e "${YELLOW}⚠ Resource group not found: $RESOURCE_GROUP${NC}"
 fi
 
-# 2. Delete Blueprint app registration
-echo -e "${BLUE}[2/4] Deleting Blueprint app registration...${NC}"
-BLUEPRINT_ID=$(az ad app list --filter "displayName eq '${ENV_NAME}-Blueprint'" --query "[0].appId" -o tsv 2>/dev/null)
-if [ -n "$BLUEPRINT_ID" ]; then
-    az ad app delete --id "$BLUEPRINT_ID" 2>/dev/null || true
-    echo -e "${GREEN}✓ Deleted Blueprint app: $BLUEPRINT_ID${NC}"
+# 2. Delete Agent app registration
+echo -e "${BLUE}[2/3] Deleting Agent app registration...${NC}"
+APP_ID=$(az ad app list --filter "displayName eq '${ENV_NAME}-Agent'" --query "[0].appId" -o tsv 2>/dev/null)
+# Also check old naming conventions
+if [ -z "$APP_ID" ]; then
+    APP_ID=$(az ad app list --filter "displayName eq '${ENV_NAME}-Identity'" --query "[0].appId" -o tsv 2>/dev/null)
+fi
+if [ -n "$APP_ID" ]; then
+    az ad app delete --id "$APP_ID" 2>/dev/null || true
+    echo -e "${GREEN}✓ Deleted Agent app: $APP_ID${NC}"
 else
-    echo -e "${YELLOW}⚠ Blueprint app not found: ${ENV_NAME}-Blueprint${NC}"
+    echo -e "${YELLOW}⚠ Agent app not found${NC}"
 fi
 
-# 3. Delete Agent Identity app registration
-echo -e "${BLUE}[3/4] Deleting Agent Identity app registration...${NC}"
-AGENT_ID=$(az ad app list --filter "displayName eq '${ENV_NAME}-Identity'" --query "[0].appId" -o tsv 2>/dev/null)
-if [ -n "$AGENT_ID" ]; then
-    az ad app delete --id "$AGENT_ID" 2>/dev/null || true
-    echo -e "${GREEN}✓ Deleted Agent Identity app: $AGENT_ID${NC}"
-else
-    echo -e "${YELLOW}⚠ Agent Identity app not found: ${ENV_NAME}-Identity${NC}"
-fi
-
-# 4. Delete azd environment
-echo -e "${BLUE}[4/4] Deleting azd environment...${NC}"
+# 3. Delete azd environment
+echo -e "${BLUE}[3/3] Deleting azd environment...${NC}"
 cd "$PROJECT_DIR"
 if azd env list 2>/dev/null | grep -q "$ENV_NAME"; then
     # Switch to different env if this is default

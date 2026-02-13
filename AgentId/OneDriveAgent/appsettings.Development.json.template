@@ -24,15 +24,6 @@
     "ModelDeploymentName": "gpt-4o-mini"
   },
 
-  "AgentObo": {
-    "TenantId": "<your-tenant-id>",
-    "AgentBlueprintClientId": "<your-blueprint-app-id>",
-    "AgentIdentityClientId": "<your-agent-identity-app-id>",
-    "AgentIdentityClientSecret": "<your-client-secret>",
-    "ManagedIdentityClientId": "<your-managed-identity-client-id>",
-    "TargetScope": "https://graph.microsoft.com/.default"
-  },
-
   "Bot": {
     "MicrosoftAppId": "<your-bot-app-id>",
     "MicrosoftAppPassword": "<your-bot-app-secret>",

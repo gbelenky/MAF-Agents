@@ -1,12 +1,12 @@
 #!/bin/bash
 # =============================================================================
-# STEP 0: Entra Admin - Cleanup App Registrations
+# STEP 0: Entra Admin - Cleanup App Registration
 # =============================================================================
 # Role: ENTRA ADMIN
-# Purpose: Remove app registrations to clean up or start fresh
+# Purpose: Remove app registration to clean up or start fresh
 # Run: OPTIONAL - use to reset before redeploying
 #
-# WARNING: This will permanently delete the app registrations!
+# WARNING: This will permanently delete the app registration!
 #
 # Usage:
 #   ./00-admin-cleanup.sh [--prefix <app-prefix>] [--force]
@@ -24,7 +24,7 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}"
 echo "=============================================="
-echo "  Entra Admin - Cleanup App Registrations"
+echo "  Entra Admin - Cleanup App Registration"
 echo "=============================================="
 echo -e "${NC}"
 
@@ -46,7 +46,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [--prefix <app-prefix>] [--force]"
             echo ""
             echo "Options:"
-            echo "  --prefix    Prefix for app registration names (default: OneDrive-Agent)"
+            echo "  --prefix    Prefix for app registration name (default: OneDrive-Agent)"
             echo "  --force     Skip confirmation prompts"
             exit 0
             ;;
@@ -66,38 +66,35 @@ CURRENT_USER=$(az ad signed-in-user show --query displayName -o tsv 2>/dev/null)
 
 echo -e "${GREEN}✓ Logged in as: $CURRENT_USER${NC}"
 
-# Find apps to delete
-BLUEPRINT_ID=$(az ad app list --display-name "${APP_PREFIX}-Blueprint" --query "[0].appId" -o tsv 2>/dev/null)
-AGENT_ID=$(az ad app list --display-name "${APP_PREFIX}-Identity" --query "[0].appId" -o tsv 2>/dev/null)
+# Find app to delete (try both naming conventions)
+APP_ID=$(az ad app list --display-name "${APP_PREFIX}-Agent" --query "[0].appId" -o tsv 2>/dev/null)
+APP_NAME="${APP_PREFIX}-Agent"
+
+# Also check for old naming convention
+if [ -z "$APP_ID" ]; then
+    APP_ID=$(az ad app list --display-name "${APP_PREFIX}-Identity" --query "[0].appId" -o tsv 2>/dev/null)
+    APP_NAME="${APP_PREFIX}-Identity"
+fi
 
 echo ""
 echo "Apps found with prefix '${APP_PREFIX}':"
 echo ""
 
-if [ -n "$BLUEPRINT_ID" ]; then
-    echo -e "  ${YELLOW}Blueprint:${NC}       ${APP_PREFIX}-Blueprint ($BLUEPRINT_ID)"
+if [ -n "$APP_ID" ]; then
+    echo -e "  ${YELLOW}App:${NC} ${APP_NAME} ($APP_ID)"
 else
-    echo "  Blueprint:       (not found)"
-fi
-
-if [ -n "$AGENT_ID" ]; then
-    echo -e "  ${YELLOW}Agent Identity:${NC}  ${APP_PREFIX}-Identity ($AGENT_ID)"
-else
-    echo "  Agent Identity:  (not found)"
-fi
-
-if [ -z "$BLUEPRINT_ID" ] && [ -z "$AGENT_ID" ]; then
+    echo "  (none found)"
     echo ""
     echo "No apps found to delete."
     exit 0
 fi
 
 echo ""
-echo -e "${RED}WARNING: This will permanently delete these app registrations!${NC}"
+echo -e "${RED}WARNING: This will permanently delete this app registration!${NC}"
 echo ""
 
 if [ "$FORCE" != true ]; then
-    read -p "Are you sure you want to delete these apps? (type 'DELETE' to confirm): " CONFIRM
+    read -p "Are you sure you want to delete this app? (type 'DELETE' to confirm): " CONFIRM
     if [ "$CONFIRM" != "DELETE" ]; then
         echo "Aborted."
         exit 0
@@ -106,20 +103,12 @@ fi
 
 echo ""
 
-# Delete Blueprint app
-if [ -n "$BLUEPRINT_ID" ]; then
-    echo -e "${BLUE}Deleting Blueprint app...${NC}"
-    az ad app delete --id "$BLUEPRINT_ID" 2>/dev/null && \
-        echo -e "${GREEN}✓ Deleted: ${APP_PREFIX}-Blueprint${NC}" || \
-        echo -e "${RED}✗ Failed to delete Blueprint app${NC}"
-fi
-
-# Delete Agent Identity app
-if [ -n "$AGENT_ID" ]; then
-    echo -e "${BLUE}Deleting Agent Identity app...${NC}"
-    az ad app delete --id "$AGENT_ID" 2>/dev/null && \
-        echo -e "${GREEN}✓ Deleted: ${APP_PREFIX}-Identity${NC}" || \
-        echo -e "${RED}✗ Failed to delete Agent Identity app${NC}"
+# Delete app
+if [ -n "$APP_ID" ]; then
+    echo -e "${BLUE}Deleting app...${NC}"
+    az ad app delete --id "$APP_ID" 2>/dev/null && \
+        echo -e "${GREEN}✓ Deleted: ${APP_NAME}${NC}" || \
+        echo -e "${RED}✗ Failed to delete app${NC}"
 fi
 
 echo ""

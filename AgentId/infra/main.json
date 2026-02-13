@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.39.26.7824",
-      "templateHash": "12028297614724143797"
+      "version": "0.40.2.10011",
+      "templateHash": "3516022255686014786"
     }
   },
   "parameters": {
@@ -74,23 +74,10 @@
         "description": "Azure AD Tenant ID"
       }
     },
-    "blueprintClientId": {
-      "type": "string",
-      "metadata": {
-        "description": "Blueprint App Client ID (from Entra ID setup script)"
-      }
-    },
     "agentIdentityClientId": {
       "type": "string",
       "metadata": {
         "description": "Agent Identity App Client ID (from Entra ID setup script)"
-      }
-    },
-    "agentName": {
-      "type": "string",
-      "defaultValue": "OneDrive-Agent",
-      "metadata": {
-        "description": "Standard Agent name"
       }
     },
     "enableBot": {
@@ -105,6 +92,20 @@
       "defaultValue": "",
       "metadata": {
         "description": "Microsoft App ID for the bot (from Entra ID app registration)"
+      }
+    },
+    "botUseUserAssignedMSI": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Use UserAssignedMSI for bot authentication (recommended for production)"
+      }
+    },
+    "enableMonitoring": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Enable monitoring with Log Analytics and Application Insights"
       }
     }
   },
@@ -139,8 +140,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "14617053916912654336"
+              "version": "0.40.2.10011",
+              "templateHash": "6388282598925522191"
             }
           },
           "parameters": {
@@ -198,6 +199,134 @@
       ]
     },
     {
+      "condition": "[parameters('enableMonitoring')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "monitoring",
+      "resourceGroup": "[format('rg-{0}', parameters('environmentName'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[format('law-{0}', parameters('environmentName'))]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "2809811993393194603"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Name for the Log Analytics Workspace"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for the resource"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to resources"
+              }
+            },
+            "retentionInDays": {
+              "type": "int",
+              "defaultValue": 30,
+              "metadata": {
+                "description": "Retention period in days"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2023-09-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": "[parameters('retentionInDays')]",
+                "publicNetworkAccessForIngestion": "Enabled",
+                "publicNetworkAccessForQuery": "Enabled"
+              }
+            },
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[format('appi-{0}', replace(parameters('name'), 'law-', ''))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "web",
+              "properties": {
+                "Application_Type": "web",
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('name'))]",
+                "IngestionMode": "LogAnalytics",
+                "publicNetworkAccessForIngestion": "Enabled",
+                "publicNetworkAccessForQuery": "Enabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('name'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "logAnalyticsId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('name'))]"
+            },
+            "logAnalyticsName": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', parameters('name')), '2023-09-01').customerId]"
+            },
+            "appInsightsId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Insights/components', format('appi-{0}', replace(parameters('name'), 'law-', '')))]"
+            },
+            "appInsightsName": {
+              "type": "string",
+              "value": "[format('appi-{0}', replace(parameters('name'), 'law-', ''))]"
+            },
+            "appInsightsConnectionString": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', format('appi-{0}', replace(parameters('name'), 'law-', ''))), '2020-02-02').ConnectionString]"
+            },
+            "appInsightsInstrumentationKey": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', format('appi-{0}', replace(parameters('name'), 'law-', ''))), '2020-02-02').InstrumentationKey]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}', parameters('environmentName')))]"
+      ]
+    },
+    {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "ai-services",
@@ -222,7 +351,8 @@
           },
           "chatModelCapacity": {
             "value": "[parameters('chatModelCapacity')]"
-          }
+          },
+          "logAnalyticsWorkspaceId": "[if(parameters('enableMonitoring'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.logAnalyticsId.value), createObject('value', ''))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -230,8 +360,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "2585839866421396471"
+              "version": "0.40.2.10011",
+              "templateHash": "17735667758188701567"
             }
           },
           "parameters": {
@@ -263,6 +393,13 @@
               "type": "int",
               "metadata": {
                 "description": "Capacity for the chat model"
+              }
+            },
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Log Analytics Workspace ID for diagnostics (optional)"
               }
             }
           },
@@ -320,12 +457,49 @@
               "dependsOn": [
                 "[resourceId('Microsoft.CognitiveServices/accounts', parameters('name'))]"
               ]
+            },
+            {
+              "condition": "[not(empty(parameters('logAnalyticsWorkspaceId')))]",
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('name'))]",
+              "name": "ai-to-log-analytics",
+              "properties": {
+                "workspaceId": "[parameters('logAnalyticsWorkspaceId')]",
+                "logs": [
+                  {
+                    "category": "RequestResponse",
+                    "enabled": true
+                  },
+                  {
+                    "category": "Audit",
+                    "enabled": true
+                  },
+                  {
+                    "category": "Trace",
+                    "enabled": true
+                  }
+                ],
+                "metrics": [
+                  {
+                    "category": "AllMetrics",
+                    "enabled": true
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('name'))]"
+              ]
             }
           ],
           "outputs": {
             "aiServicesName": {
               "type": "string",
               "value": "[parameters('name')]"
+            },
+            "aiServicesEndpoint": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('name')), '2025-04-01-preview').endpoint]"
             },
             "projectName": {
               "type": "string",
@@ -343,6 +517,7 @@
         }
       },
       "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'monitoring')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}', parameters('environmentName')))]"
       ]
     },
@@ -370,8 +545,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "18154843249384198877"
+              "version": "0.40.2.10011",
+              "templateHash": "12013518287907904722"
             }
           },
           "parameters": {
@@ -396,7 +571,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[format('Microsoft.CognitiveServices/accounts/{0}', parameters('aiServicesName'))]",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]",
               "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName')), parameters('principalId'), variables('openAIContributorRoleId'))]",
               "properties": {
                 "principalId": "[parameters('principalId')]",
@@ -407,7 +582,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[format('Microsoft.CognitiveServices/accounts/{0}', parameters('aiServicesName'))]",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]",
               "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName')), parameters('principalId'), variables('openAIUserRoleId'))]",
               "properties": {
                 "principalId": "[parameters('principalId')]",
@@ -447,8 +622,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "14045340635674090457"
+              "version": "0.40.2.10011",
+              "templateHash": "1519929332285928603"
             }
           },
           "parameters": {
@@ -474,7 +649,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[format('Microsoft.CognitiveServices/accounts/{0}', parameters('aiServicesName'))]",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]",
               "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName')), parameters('principalId'), variables('openAIContributorRoleId'))]",
               "properties": {
                 "principalId": "[parameters('principalId')]",
@@ -485,7 +660,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[format('Microsoft.CognitiveServices/accounts/{0}', parameters('aiServicesName'))]",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]",
               "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName')), parameters('principalId'), variables('openAIUserRoleId'))]",
               "properties": {
                 "principalId": "[parameters('principalId')]",
@@ -496,7 +671,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[format('Microsoft.CognitiveServices/accounts/{0}', parameters('aiServicesName'))]",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]",
               "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName')), parameters('principalId'), variables('cognitiveServicesUserRoleId'))]",
               "properties": {
                 "principalId": "[parameters('principalId')]",
@@ -542,25 +717,20 @@
           "tenantId": {
             "value": "[parameters('tenantId')]"
           },
-          "blueprintClientId": {
-            "value": "[parameters('blueprintClientId')]"
-          },
           "agentIdentityClientId": {
             "value": "[parameters('agentIdentityClientId')]"
           },
-          "projectEndpoint": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'ai-services'), '2025-04-01').outputs.projectEndpoint.value]"
+          "foundryEndpoint": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'ai-services'), '2025-04-01').outputs.aiServicesEndpoint.value]"
           },
           "modelDeploymentName": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'ai-services'), '2025-04-01').outputs.chatModelDeploymentName.value]"
           },
-          "agentName": {
-            "value": "[parameters('agentName')]"
-          },
           "botMicrosoftAppId": "[if(parameters('enableBot'), createObject('value', parameters('botMicrosoftAppId')), createObject('value', ''))]",
           "botOAuthConnectionName": {
             "value": "graph-connection"
-          }
+          },
+          "appInsightsConnectionString": "[if(parameters('enableMonitoring'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.appInsightsConnectionString.value), createObject('value', ''))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -568,8 +738,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "8060889835409626698"
+              "version": "0.40.2.10011",
+              "templateHash": "10329800170816661238"
             }
           },
           "parameters": {
@@ -628,12 +798,6 @@
                 "description": "Azure AD Tenant ID"
               }
             },
-            "blueprintClientId": {
-              "type": "string",
-              "metadata": {
-                "description": "Blueprint App Client ID"
-              }
-            },
             "agentIdentityClientId": {
               "type": "string",
               "metadata": {
@@ -647,7 +811,7 @@
                 "description": "Target scope for OBO (e.g., https://graph.microsoft.com/.default)"
               }
             },
-            "projectEndpoint": {
+            "foundryEndpoint": {
               "type": "string",
               "metadata": {
                 "description": "AI Foundry Project endpoint"
@@ -657,13 +821,6 @@
               "type": "string",
               "metadata": {
                 "description": "Model deployment name"
-              }
-            },
-            "agentName": {
-              "type": "string",
-              "defaultValue": "OneDrive-Agent",
-              "metadata": {
-                "description": "Standard Agent name"
               }
             },
             "botMicrosoftAppId": {
@@ -678,6 +835,13 @@
               "defaultValue": "graph-connection",
               "metadata": {
                 "description": "OAuth connection name for Graph API"
+              }
+            },
+            "appInsightsConnectionString": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Application Insights connection string (optional)"
               }
             }
           },
@@ -718,84 +882,7 @@
                   "minTlsVersion": "1.2",
                   "http20Enabled": true,
                   "healthCheckPath": "/health",
-                  "appSettings": [
-                    {
-                      "name": "AZURE_CLIENT_ID",
-                      "value": "[parameters('userAssignedIdentityClientId')]"
-                    },
-                    {
-                      "name": "AgentObo__TenantId",
-                      "value": "[parameters('tenantId')]"
-                    },
-                    {
-                      "name": "AgentObo__AgentBlueprintClientId",
-                      "value": "[parameters('blueprintClientId')]"
-                    },
-                    {
-                      "name": "AgentObo__AgentIdentityClientId",
-                      "value": "[parameters('agentIdentityClientId')]"
-                    },
-                    {
-                      "name": "AgentObo__ManagedIdentityClientId",
-                      "value": "[parameters('userAssignedIdentityClientId')]"
-                    },
-                    {
-                      "name": "AgentObo__TargetScope",
-                      "value": "[parameters('targetScope')]"
-                    },
-                    {
-                      "name": "FoundryAgent__ProjectEndpoint",
-                      "value": "[parameters('projectEndpoint')]"
-                    },
-                    {
-                      "name": "FoundryAgent__ModelDeploymentName",
-                      "value": "[parameters('modelDeploymentName')]"
-                    },
-                    {
-                      "name": "FoundryAgent__AgentName",
-                      "value": "[parameters('agentName')]"
-                    },
-                    {
-                      "name": "ASPNETCORE_ENVIRONMENT",
-                      "value": "Production"
-                    },
-                    {
-                      "name": "WEBSITE_RUN_FROM_PACKAGE",
-                      "value": "1"
-                    },
-                    {
-                      "name": "Bot__MicrosoftAppId",
-                      "value": "[parameters('botMicrosoftAppId')]"
-                    },
-                    {
-                      "name": "Bot__MicrosoftAppTenantId",
-                      "value": "[parameters('tenantId')]"
-                    },
-                    {
-                      "name": "Bot__OAuthConnectionName",
-                      "value": "[parameters('botOAuthConnectionName')]"
-                    },
-                    {
-                      "name": "Connections__BotServiceConnection__Assembly",
-                      "value": "Microsoft.Agents.Authentication.Msal"
-                    },
-                    {
-                      "name": "Connections__BotServiceConnection__Type",
-                      "value": "MsalAuth"
-                    },
-                    {
-                      "name": "Connections__BotServiceConnection__Settings__AuthType",
-                      "value": "ManagedIdentity"
-                    },
-                    {
-                      "name": "Connections__BotServiceConnection__Settings__ClientId",
-                      "value": "[parameters('userAssignedIdentityClientId')]"
-                    },
-                    {
-                      "name": "Connections__BotServiceConnection__Settings__TenantId",
-                      "value": "[parameters('tenantId')]"
-                    }
-                  ]
+                  "appSettings": "[flatten(createArray(createArray(createObject('name', 'AZURE_CLIENT_ID', 'value', parameters('userAssignedIdentityClientId')), createObject('name', 'MafAgent__FoundryEndpoint', 'value', parameters('foundryEndpoint')), createObject('name', 'MafAgent__ModelDeploymentName', 'value', parameters('modelDeploymentName')), createObject('name', 'ASPNETCORE_ENVIRONMENT', 'value', 'Production'), createObject('name', 'ASPNETCORE_URLS', 'value', 'http://0.0.0.0:8080'), createObject('name', 'WEBSITE_RUN_FROM_PACKAGE', 'value', '1'), createObject('name', 'Bot__MicrosoftAppId', 'value', parameters('botMicrosoftAppId')), createObject('name', 'Bot__MicrosoftAppTenantId', 'value', parameters('tenantId')), createObject('name', 'Bot__OAuthConnectionName', 'value', parameters('botOAuthConnectionName')), createObject('name', 'Connections__BotServiceConnection__Assembly', 'value', 'Microsoft.Agents.Authentication.Msal'), createObject('name', 'Connections__BotServiceConnection__Type', 'value', 'MsalAuth'), createObject('name', 'Connections__BotServiceConnection__Settings__AuthType', 'value', 'FederatedCredentials'), createObject('name', 'Connections__BotServiceConnection__Settings__ClientId', 'value', parameters('agentIdentityClientId')), createObject('name', 'Connections__BotServiceConnection__Settings__FederatedClientId', 'value', parameters('userAssignedIdentityClientId')), createObject('name', 'Connections__BotServiceConnection__Settings__ManagedIdentityClientId', 'value', parameters('userAssignedIdentityClientId')), createObject('name', 'Connections__BotServiceConnection__Settings__TenantId', 'value', parameters('tenantId')), createObject('name', 'Connections__BotServiceConnection__Settings__Authority', 'value', format('https://login.microsoftonline.com/{0}', parameters('tenantId')))), if(empty(parameters('appInsightsConnectionString')), createArray(), createArray(createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', parameters('appInsightsConnectionString'))))))]"
                 }
               },
               "dependsOn": [
@@ -854,6 +941,7 @@
       "dependsOn": [
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'ai-services')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'managed-identity')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'monitoring')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'rbac-managed-identity')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}', parameters('environmentName')))]"
       ]
@@ -887,7 +975,13 @@
           },
           "botDescription": {
             "value": "AI-powered OneDrive assistant that helps users manage their files"
-          }
+          },
+          "useUserAssignedMSI": {
+            "value": "[parameters('botUseUserAssignedMSI')]"
+          },
+          "msaAppMSIResourceId": "[if(parameters('botUseUserAssignedMSI'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'managed-identity'), '2025-04-01').outputs.id.value), createObject('value', ''))]",
+          "appInsightsInstrumentationKey": "[if(parameters('enableMonitoring'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.appInsightsInstrumentationKey.value), createObject('value', ''))]",
+          "appInsightsApplicationId": "[if(parameters('enableMonitoring'), createObject('value', last(split(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.appInsightsId.value, '/'))), createObject('value', ''))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -895,8 +989,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "8018663800810589573"
+              "version": "0.40.2.10011",
+              "templateHash": "16081563304350780473"
             }
           },
           "parameters": {
@@ -958,6 +1052,34 @@
               "metadata": {
                 "description": "Scopes for the OAuth connection"
               }
+            },
+            "useUserAssignedMSI": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Use UserAssignedMSI authentication instead of SingleTenant"
+              }
+            },
+            "msaAppMSIResourceId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "User Assigned Managed Identity resource ID (required if useUserAssignedMSI is true)"
+              }
+            },
+            "appInsightsInstrumentationKey": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Application Insights Instrumentation Key"
+              }
+            },
+            "appInsightsApplicationId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Application Insights Application ID"
+              }
             }
           },
           "resources": [
@@ -976,9 +1098,10 @@
                 "endpoint": "[format('{0}/api/messages', parameters('appServiceUrl'))]",
                 "msaAppId": "[parameters('microsoftAppId')]",
                 "msaAppTenantId": "[parameters('tenantId')]",
-                "msaAppType": "SingleTenant",
-                "developerAppInsightKey": "",
-                "developerAppInsightsApplicationId": "",
+                "msaAppType": "[if(parameters('useUserAssignedMSI'), 'UserAssignedMSI', 'SingleTenant')]",
+                "msaAppMSIResourceId": "[if(parameters('useUserAssignedMSI'), parameters('msaAppMSIResourceId'), null())]",
+                "developerAppInsightKey": "[parameters('appInsightsInstrumentationKey')]",
+                "developerAppInsightsApplicationId": "[parameters('appInsightsApplicationId')]",
                 "luisAppIds": [],
                 "isCmekEnabled": false,
                 "isStreamingSupported": true,
@@ -1063,12 +1186,101 @@
             "ssoTokenExchangeUrl": {
               "type": "string",
               "value": "[format('api://botid-{0}', parameters('microsoftAppId'))]"
+            },
+            "msaAppType": {
+              "type": "string",
+              "value": "[if(parameters('useUserAssignedMSI'), 'UserAssignedMSI', 'SingleTenant')]"
             }
           }
         }
       },
       "dependsOn": [
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'app-service')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'managed-identity')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'monitoring')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}', parameters('environmentName')))]"
+      ]
+    },
+    {
+      "condition": "[and(parameters('enableBot'), parameters('enableMonitoring'))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "bot-diagnostics",
+      "resourceGroup": "[format('rg-{0}', parameters('environmentName'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[format('diag-bot-{0}', parameters('environmentName'))]"
+          },
+          "botServiceId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'bot-service'), '2025-04-01').outputs.botId.value]"
+          },
+          "logAnalyticsWorkspaceId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.logAnalyticsId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "11065538276709356107"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Name for the diagnostic settings"
+              }
+            },
+            "botServiceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Bot Service resource ID"
+              }
+            },
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics Workspace ID"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[resourceId('Microsoft.BotService/botServices', last(split(parameters('botServiceId'), '/')))]",
+              "name": "[parameters('name')]",
+              "properties": {
+                "workspaceId": "[parameters('logAnalyticsWorkspaceId')]",
+                "logs": [
+                  {
+                    "category": "BotRequest",
+                    "enabled": true
+                  }
+                ],
+                "metrics": [
+                  {
+                    "category": "AllMetrics",
+                    "enabled": true
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'bot-service')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'monitoring')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}', parameters('environmentName')))]"
       ]
     }
@@ -1133,6 +1345,14 @@
     "BOT_SSO_TOKEN_EXCHANGE_URL": {
       "type": "string",
       "value": "[if(and(parameters('enableBot'), not(equals(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'bot-service'), '2025-04-01'), null()))), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'bot-service'), '2025-04-01').outputs.ssoTokenExchangeUrl.value, '')]"
+    },
+    "LOG_ANALYTICS_WORKSPACE_ID": {
+      "type": "string",
+      "value": "[if(parameters('enableMonitoring'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.logAnalyticsWorkspaceId.value, '')]"
+    },
+    "APP_INSIGHTS_CONNECTION_STRING": {
+      "type": "string",
+      "value": "[if(parameters('enableMonitoring'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.appInsightsConnectionString.value, '')]"
     }
   }
 }

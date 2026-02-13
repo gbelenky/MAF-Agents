@@ -4,15 +4,6 @@ using Microsoft.Agents.Hosting.AspNetCore;
 using Microsoft.Agents.Builder;
 using OneDriveAgent.Services;
 
-// =============================================================================
-// Handle "setup" command for Agent Identity provisioning
-// =============================================================================
-if (args.Length > 0 && args[0] == "setup")
-{
-    var exitCode = await SetupProgram.RunSetupAsync(args.Skip(1).ToArray());
-    return;
-}
-
 var builder = WebApplication.CreateBuilder(args);
 
 // Note: Port configuration is in appsettings.json (Kestrel section)
