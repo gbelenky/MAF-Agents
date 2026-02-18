@@ -150,9 +150,9 @@ fi
 echo ""
 echo -e "${BLUE}Step 2/6: Configuring API (access_as_user scope + SSO)...${NC}"
 
-# Set identifier URI and enable public client
+# Set identifier URI (with botid- prefix for Teams SSO) and enable public client
 az ad app update --id "$APP_ID" \
-    --identifier-uris "api://$APP_ID" \
+    --identifier-uris "api://botid-$APP_ID" \
     --is-fallback-public-client true 2>/dev/null || true
 
 # Generate UUID for scope
@@ -245,21 +245,38 @@ echo -e "${GREEN}✓ Added Graph permissions: Files.Read, Files.ReadWrite, User.
 echo ""
 echo -e "${BLUE}Step 4/6: Granting Admin Consent...${NC}"
 
-# Wait for permissions to propagate
-sleep 5
+# Wait for permissions to propagate (Entra can take 10-30 seconds)
+echo "Waiting for permissions to propagate..."
+sleep 10
 
-# Grant admin consent
-if az ad app permission admin-consent --id "$APP_ID" 2>/dev/null; then
-    echo -e "${GREEN}✓ Admin consent granted${NC}"
-else
-    echo -e "${YELLOW}⚠ Auto-consent failed. Trying again...${NC}"
-    sleep 5
-    if az ad app permission admin-consent --id "$APP_ID" 2>/dev/null; then
-        echo -e "${GREEN}✓ Admin consent granted (on retry)${NC}"
+# Grant admin consent with multiple retries
+CONSENT_GRANTED=false
+for attempt in 1 2 3; do
+    echo "Attempt $attempt/3..."
+    if az ad app permission admin-consent --id "$APP_ID" 2>&1; then
+        echo -e "${GREEN}✓ Admin consent granted${NC}"
+        CONSENT_GRANTED=true
+        break
     else
-        echo -e "${RED}⚠ Could not auto-grant consent. Please grant manually:${NC}"
-        echo "   https://login.microsoftonline.com/$TENANT_ID/adminconsent?client_id=$APP_ID"
-        read -p "Press Enter after granting consent..." 
+        echo -e "${YELLOW}⚠ Attempt $attempt failed. Waiting 10 seconds...${NC}"
+        sleep 10
+    fi
+done
+
+if [ "$CONSENT_GRANTED" = false ]; then
+    echo -e "${RED}⚠ Auto-consent failed after 3 attempts.${NC}"
+    echo ""
+    echo "Please grant consent manually:"
+    echo "  1. Open: https://login.microsoftonline.com/$TENANT_ID/adminconsent?client_id=$APP_ID"
+    echo "  2. Log in as admin and click 'Accept'"
+    echo ""
+    read -p "Press Enter after granting consent..."
+    
+    # Verify consent was granted
+    if az ad app permission admin-consent --id "$APP_ID" 2>&1; then
+        echo -e "${GREEN}✓ Consent verified${NC}"
+    else
+        echo -e "${YELLOW}⚠ Consent verification failed. Continuing - you may need to grant consent later.${NC}"
     fi
 fi
 
@@ -296,17 +313,6 @@ echo -e "${NC}"
 echo ""
 echo "App Registration Created: ${APP_NAME}"
 echo ""
-
-# Automatically save to azd environment if available
-if command -v azd &> /dev/null; then
-    echo -e "${BLUE}Saving values to azd environment...${NC}"
-    azd env set TENANT_ID "$TENANT_ID" 2>/dev/null || true
-    azd env set AGENT_IDENTITY_CLIENT_ID "$APP_ID" 2>/dev/null || true
-    azd env set BOT_MICROSOFT_APP_ID "$APP_ID" 2>/dev/null || true
-    azd env set ENABLE_BOT "true" 2>/dev/null || true
-    echo -e "${GREEN}✓ Values saved to azd environment${NC}"
-    echo ""
-fi
 
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${YELLOW}  VALUES FOR DEVELOPER:${NC}"

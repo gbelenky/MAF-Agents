@@ -1,65 +1,105 @@
 # OneDrive Agent with OBO Authentication
 
-An AI-powered OneDrive assistant that runs in **Microsoft Teams** using the **On-Behalf-Of (OBO) flow** with Entra ID app registration for secure user delegation.
+An AI-powered OneDrive assistant that runs in **Microsoft Teams** using the **M365 Agents SDK** and **Microsoft Agents Framework (MAF)** with the **On-Behalf-Of (OBO) flow** for secure user delegation.
 
-## Quick Start
+## Deployment
 
-### For Developers
+This deployment requires coordination between **Developer** and **Entra Admin** roles using handoff files.
+
+```
+┌── DEVELOPER ──────────────────────────────────────────────────────┐
+│  STEP 0: Choose environment name (e.g., myagent)                  │
+│          ↳ Tell Admin the name                                    │
+└───────────────────────────────────────────────────────────────────┘
+                              ↓
+┌── ENTRA ADMIN ────────────────────────────────────────────────────┐
+│  STEP 1: bash scripts/01-admin-create-apps.sh --prefix {name}     │
+│          ↳ Output: handoff/01-admin-output-{name}.txt             │
+│          ↳ Send file to Developer (securely)                      │
+└───────────────────────────────────────────────────────────────────┘
+                              ↓
+┌── DEVELOPER ──────────────────────────────────────────────────────┐
+│  STEP 2: azd env new {name}                                       │
+│          azd env set AGENT_IDENTITY_CLIENT_ID "<from-admin-file>" │
+│          azd up                                                   │
+│          bash scripts/02-dev-generate-handoff.sh                  │
+│          ↳ Output: handoff/02-dev-handoff-{name}.txt              │
+│          ↳ Send file to Admin (securely)                          │
+└───────────────────────────────────────────────────────────────────┘
+                              ↓
+┌── ENTRA ADMIN ────────────────────────────────────────────────────┐
+│  STEP 3: bash scripts/03-admin-create-fic.sh \                    │
+│            --handoff-file 02-dev-handoff-{name}.txt               │
+│  STEP 4: bash scripts/04-admin-bot-oauth.sh \                     │
+│            --handoff-file 02-dev-handoff-{name}.txt               │
+│          ↳ Notify Developer when done                             │
+└───────────────────────────────────────────────────────────────────┘
+                              ↓
+┌── DEVELOPER ──────────────────────────────────────────────────────┐
+│  STEP 5: bash scripts/05-dev-teams-manifest.sh                    │
+│  STEP 6: Upload teams-manifest/{AgentName}.zip to Teams           │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+### Step 0: Developer Chooses Name
+
+Developer decides on environment name (e.g., `myagent`) and tells Entra Admin.
+
+### Step 1: Entra Admin Creates App Registration
 
 ```bash
-# 1. Clone and prepare
-git clone <repo> && cd AgentId
-uv sync          # Python dependencies (for agent management)
-dotnet build     # .NET build
+bash scripts/01-admin-create-apps.sh --prefix myagent
+```
 
-# 2. Get app ID from your Entra Admin (from handoff file)
-azd env set AGENT_IDENTITY_CLIENT_ID "<from-admin>"
+Creates app registration with Graph permissions and Teams SSO pre-authorization.
 
-# 3. Deploy to Azure
+**Send `handoff/01-admin-output-myagent.txt` to Developer**
+
+### Step 2: Developer Deploys to Azure
+
+```bash
+# Create environment and set app ID from admin handoff file
+azd env new myagent
+azd env set AGENT_IDENTITY_CLIENT_ID "<APP_ID from admin handoff file>"
+
+# Deploy to Azure
 azd up
 
-# 4. Verify deployment succeeded
-curl https://app-<env-name>.azurewebsites.net/health
-# Should return "Healthy". If not, redeploy: azd deploy api
+# Verify deployment
+curl https://app-myagent.azurewebsites.net/health
 
-# 5. Provide MI Client ID to Admin (shown at end of azd up)
-azd env get-value MANAGED_IDENTITY_CLIENT_ID
+# Generate handoff file for Admin
+bash scripts/02-dev-generate-handoff.sh
+```
 
-# 5. After Admin completes FIC + OAuth setup, generate Teams app
+**Send `handoff/02-dev-handoff-myagent.txt` to Admin**
+
+### Steps 3-4: Entra Admin Creates FIC + OAuth
+
+```bash
+bash scripts/03-admin-create-fic.sh --handoff-file /path/to/02-dev-handoff-myagent.txt
+bash scripts/04-admin-bot-oauth.sh --handoff-file /path/to/02-dev-handoff-myagent.txt
+```
+
+**Notify Developer when complete.**
+
+### Steps 5-6: Developer Generates Teams App
+
+```bash
 bash scripts/05-dev-teams-manifest.sh
-
-# 6. Install Teams app
-# Upload teams-manifest/OneDriveAgent.zip to Teams
+# Upload teams-manifest/<AgentName>.zip to Teams Admin Center
 ```
 
-### For Entra ID Admins
+> **Note:** After completing all steps, wait **2-5 minutes** before testing in Teams. The Bot Service, OAuth connection, and Teams manifest need time to propagate.
 
-Run the automated setup script:
+### Handoff Files
 
-```bash
-bash scripts/01-admin-create-apps.sh
-```
+| File | Direction | Contains |
+|------|-----------|----------|
+| `01-admin-output-{name}.txt` | Admin → Developer | App ID, Tenant ID |
+| `02-dev-handoff-{name}.txt` | Developer → Admin | MI ID, Resource Group, Bot Name |
 
-This creates:
-- Agent Identity app registration with `access_as_user` scope  
-- Graph API delegated permissions (`Files.Read`, `Files.ReadWrite`, `User.Read`)
-- Pre-authorized Teams clients for SSO
-- Saves output to `handoff/01-admin-output-{env}.txt`
-
-**After developer runs `azd up`, complete FIC setup:**
-
-```bash
-bash scripts/03-admin-create-fic.sh
-```
-
-**Create bot OAuth connection:**
-
-```bash
-bash scripts/04-admin-bot-oauth.sh \
-  --bot-app-id <agent-identity-id> \
-  --resource-group rg-<env-name> \
-  --bot-name bot-<env-name>
-```
+> All handoff files are saved to `handoff/` folder which is gitignored (contains secrets).
 
 ## Architecture
 
@@ -77,7 +117,7 @@ bash scripts/04-admin-bot-oauth.sh \
 │                      AZURE APP SERVICE                                 │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │                    OneDrive Agent API                           │   │
-│  │  Bot Framework → MAF Agent → Azure OpenAI → Function Tools      │   │
+│  │  M365 Agents SDK → MAF Agent → Azure OpenAI → Function Tools    │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
 └────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -87,6 +127,10 @@ bash scripts/04-admin-bot-oauth.sh \
 │  OneDrive files accessed with user's delegated permissions             │
 └────────────────────────────────────────────────────────────────────────┘
 ```
+
+**SDK Stack:**
+- **M365 Agents SDK** (`Microsoft.Agents.Hosting.AspNetCore`) - Bot/Teams messaging infrastructure
+- **Microsoft Agents Framework (MAF)** (`Microsoft.Agents.AI`) - AI agent orchestration with function tools
 
 ## Identity Approach: Working-Version vs Foundry Agent ID
 
@@ -131,8 +175,6 @@ AgentId/
 │   ├── Services/           # Bot handler, MAF agent, OBO token service
 │   ├── Program.cs          # App configuration and DI
 │   └── README.md           # Detailed documentation
-├── src/                    # Python agent management
-│   └── agent_manager.py    # Create/delete Standard Agents
 ├── infra/                  # Azure Bicep infrastructure
 ├── scripts/                # Admin and setup scripts
 │   ├── 00-admin-cleanup.sh      # Clean up app registrations
@@ -154,27 +196,11 @@ AgentId/
 See [OneDriveAgent/README.md](OneDriveAgent/README.md) for:
 - **[Local Development & Testing](OneDriveAgent/README.md#local-development)** - Build, run, and debug locally
 - **[Dev Tunnels for Debugging](OneDriveAgent/README.md#local-testing-with-dev-tunnels)** - Test with Teams using dev tunnels
-- Complete deployment guide (5 phases)
 - Token flow explanations
 - Troubleshooting guide
-- API reference
 
-## Deployment Steps Overview
+## Utility Scripts
 
-| Step | Command | Role | Purpose | Handoff |
-|------|---------|------|---------|---------|
-| 0 | Choose environment name | Developer | Decide name (e.g., `onedriveagent15`) | Tell Admin the name |
-| 1 | `01-admin-create-apps.sh --prefix {name}` | Entra Admin | Create app registration | `handoff/01-admin-output-*.txt` → Dev |
-| 2 | `azd env new {name}` + `azd up` | Developer | Deploy Azure resources | - |
-| - | `02-dev-generate-handoff.sh` | Developer | (Optional) Generate handoff | `handoff/02-dev-handoff-*.txt` → Admin |
-| 3 | `03-admin-create-fic.sh` | Entra Admin | Create Federated Identity Credential | - |
-| 4 | `04-admin-bot-oauth.sh` | Entra Admin | Configure bot OAuth connection | - |
-| 5 | `05-dev-teams-manifest.sh` | Developer | Generate Teams app package | `teams-manifest/OneDriveAgent.zip` |
-| 6 | Upload to Teams | Developer | Install app in Teams | - |
-
-> **Note:** All handoff files are saved to `handoff/` folder which is gitignored (contains secrets).
-
-**Utility Scripts:**
 | Script | Role | Purpose |
 |--------|------|---------|
 | `00-admin-cleanup.sh` | Entra Admin | Delete app registrations (reset) |
@@ -195,86 +221,6 @@ This solution creates **two separate client secrets** for different purposes:
 - For production, consider using certificates instead of secrets
 - Secrets expire after the configured period (default: 1-2 years)
 
-## Deployment Workflows
-
-### Option A: Same Person (Dev + Admin)
-
-When developer has Entra Admin permissions:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  STEP 0: Choose environment name (e.g., myagent)                │
-│  STEP 1: bash scripts/01-admin-create-apps.sh --prefix myagent  │
-│          ↳ Creates Entra app, saves IDs to azd env              │
-│  STEP 2: azd env new myagent && azd up                          │
-│          ↳ Deploys Azure resources, creates Managed Identity    │
-│  STEP 3: bash scripts/03-admin-create-fic.sh                    │
-│          ↳ Links Managed Identity to Agent Identity             │
-│  STEP 4: bash scripts/04-admin-bot-oauth.sh                     │
-│          ↳ Creates Bot OAuth connection with secret             │
-│  STEP 5: bash scripts/05-dev-teams-manifest.sh                  │
-│          ↳ Generates Teams app package                          │
-│  STEP 6: Upload to Teams Admin Center                           │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Commands:**
-```bash
-bash scripts/01-admin-create-apps.sh --prefix myagent
-azd env new myagent
-azd up
-bash scripts/03-admin-create-fic.sh
-bash scripts/04-admin-bot-oauth.sh
-bash scripts/05-dev-teams-manifest.sh
-```
-
-### Option B: Separate Developer and Entra Admin
-
-When developer and admin are different people:
-
-```
-┌── DEVELOPER ──────────────────────────────────────────────────────┐
-│  STEP 0: Choose environment name (e.g., onedriveagent15)          │
-│          ↳ Tell Admin the name                                    │
-└───────────────────────────────────────────────────────────────────┘
-                              ↓
-┌── ENTRA ADMIN ────────────────────────────────────────────────────┐
-│  STEP 1: bash scripts/01-admin-create-apps.sh --prefix {name}     │
-│          ↳ Output: handoff/01-admin-output-{name}.txt             │
-│          ↳ Send file to Developer                                 │
-└───────────────────────────────────────────────────────────────────┘
-                              ↓
-┌── DEVELOPER ──────────────────────────────────────────────────────┐
-│  azd env new {name}                                               │
-│  azd env set AGENT_IDENTITY_CLIENT_ID "<from-admin>"              │
-│                                                                   │
-│  STEP 2: azd up                                                   │
-│          ↳ Deploys Azure resources                                │
-│                                                                   │
-│  bash scripts/02-dev-generate-handoff.sh                          │
-│          ↳ Output: handoff/02-dev-handoff-{name}.txt              │
-│          ↳ Send file to Admin                                     │
-└───────────────────────────────────────────────────────────────────┘
-                              ↓
-┌── ENTRA ADMIN ────────────────────────────────────────────────────┐
-│  (Place 02-dev-handoff-{env}.txt in handoff/ folder)              │
-│                                                                   │
-│  STEP 3: bash scripts/03-admin-create-fic.sh                      │
-│          ↳ Auto-detects values from handoff file                  │
-│                                                                   │
-│  STEP 4: bash scripts/04-admin-bot-oauth.sh                       │
-│          ↳ Creates Bot OAuth secret and connection                │
-│          ↳ Notify Developer when done                             │
-└───────────────────────────────────────────────────────────────────┘
-                              ↓
-┌── DEVELOPER ──────────────────────────────────────────────────────┐
-│  STEP 5: bash scripts/05-dev-teams-manifest.sh                    │
-│          ↳ Output: teams-manifest/OneDriveAgent.zip               │
-│                                                                   │
-│  STEP 6: Upload OneDriveAgent.zip to Teams Admin Center           │
-└───────────────────────────────────────────────────────────────────┘
-```
-
 ## Azure Resources
 
 After `azd up`, your resource group contains:
@@ -293,7 +239,6 @@ After `azd up`, your resource group contains:
 - Entra ID admin privileges (for app registrations)
 - [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)
 - [.NET 9 SDK](https://dotnet.microsoft.com/download)
-- [uv](https://github.com/astral-sh/uv) for Python dependencies
 
 ## License
 

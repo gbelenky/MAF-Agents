@@ -29,13 +29,47 @@ echo "=========================================="
 
 # Try to get values from azd environment if available
 if command -v azd &> /dev/null; then
-    AZD_ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "")
+    # Filter out ERROR and WARNING lines from azd output
+    AZD_ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>&1 | grep -v "^ERROR\|^WARNING\|update\|winget\|Winget" | head -1 || echo "")
     if [ -z "$BOT_MICROSOFT_APP_ID" ]; then
-        BOT_MICROSOFT_APP_ID=$(azd env get-value BOT_MICROSOFT_APP_ID 2>/dev/null || echo "")
+        # Use AGENT_IDENTITY_CLIENT_ID (the bot uses the same app registration)
+        BOT_MICROSOFT_APP_ID=$(azd env get-value AGENT_IDENTITY_CLIENT_ID 2>&1 | grep -v "^ERROR\|^WARNING\|update\|winget\|Winget" | head -1 || echo "")
     fi
     if [ -z "$APP_SERVICE_HOSTNAME" ]; then
         # Derive from environment name
         APP_SERVICE_HOSTNAME="app-${AZD_ENV_NAME}.azurewebsites.net"
+    fi
+fi
+
+# Fallback: Try to load from admin output file (for developers who received admin handoff)
+if [ -z "$BOT_MICROSOFT_APP_ID" ] || [ -z "$AZD_ENV_NAME" ]; then
+    ADMIN_OUTPUT_FILE=""
+    for f in handoff/01-admin-output-*.txt 01-admin-output-*.txt; do
+        if [ -f "$f" ]; then
+            ADMIN_OUTPUT_FILE="$f"
+            break
+        fi
+    done
+    
+    if [ -n "$ADMIN_OUTPUT_FILE" ]; then
+        echo "Found admin output file: $ADMIN_OUTPUT_FILE"
+        if [ -z "$BOT_MICROSOFT_APP_ID" ]; then
+            FILE_APP_ID=$(grep "^AGENT_IDENTITY_CLIENT_ID=" "$ADMIN_OUTPUT_FILE" | cut -d'=' -f2)
+            if [ -n "$FILE_APP_ID" ]; then
+                BOT_MICROSOFT_APP_ID="$FILE_APP_ID"
+                echo "  ✓ BOT_MICROSOFT_APP_ID from file"
+            fi
+        fi
+        if [ -z "$AZD_ENV_NAME" ]; then
+            # Try to extract from filename pattern: 01-admin-output-{ENV_NAME}-{YYYYMMDD}-*.txt
+            # Remove prefix and date suffix to get env name
+            FILE_ENV_NAME=$(basename "$ADMIN_OUTPUT_FILE" .txt | sed 's/01-admin-output-//' | sed 's/-[0-9]\{8\}-[0-9]\{6\}$//')
+            if [ -n "$FILE_ENV_NAME" ]; then
+                AZD_ENV_NAME="$FILE_ENV_NAME"
+                APP_SERVICE_HOSTNAME="app-${AZD_ENV_NAME}.azurewebsites.net"
+                echo "  ✓ Environment name from filename: $AZD_ENV_NAME"
+            fi
+        fi
     fi
 fi
 
@@ -56,11 +90,13 @@ AGENT_NAME_FULL="${AGENT_NAME_FULL:-$AGENT_NAME - AI File Assistant}"
 # Prompt for missing values
 if [ -z "$BOT_APP_ID" ]; then
     echo "BOT_MICROSOFT_APP_ID not set."
+    echo "  Check admin output file for APP_ID (e.g., handoff/01-admin-output-*.txt)"
     read -p "Enter Bot Microsoft App ID: " BOT_APP_ID
 fi
 
 if [ -z "$APP_HOSTNAME" ]; then
     echo "APP_SERVICE_HOSTNAME not set."
+    echo "  Typically: app-\$AZURE_ENV_NAME.azurewebsites.net"
     read -p "Enter App Service hostname (e.g., app-myenv.azurewebsites.net): " APP_HOSTNAME
 fi
 

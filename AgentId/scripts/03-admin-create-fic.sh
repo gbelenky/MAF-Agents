@@ -44,6 +44,7 @@ TENANT_ID=""
 AGENT_IDENTITY_ID=""
 MI_CLIENT_ID=""
 FIC_NAME="OneDriveAgentManagedIdentity"
+HANDOFF_FILE=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -63,14 +64,22 @@ while [[ $# -gt 0 ]]; do
             FIC_NAME="$2"
             shift 2
             ;;
+        --handoff-file)
+            HANDOFF_FILE="$2"
+            shift 2
+            ;;
         -h|--help)
             echo "Usage: $0 [options]"
             echo ""
             echo "Options:"
             echo "  --tenant-id <id>           Azure AD tenant ID"
-            echo "  --agent-identity-id <id>   Agent Identity App Client ID (from Phase 1)"
-            echo "  --mi-client-id <id>        Managed Identity Client ID (from Developer)"
+            echo "  --agent-identity-id <id>   Agent Identity App Client ID (from Step 1)"
+            echo "  --mi-client-id <id>        Managed Identity Client ID (from Developer handoff)"
+            echo "  --handoff-file <path>      Developer handoff file (02-dev-handoff-*.txt)"
             echo "  --fic-name <name>          FIC name (default: OneDriveAgentManagedIdentity)"
+            echo ""
+            echo "For separated admin/dev workflow, place the developer handoff file in:"
+            echo "  handoff/02-dev-handoff-{env}.txt"
             exit 0
             ;;
         *)
@@ -82,13 +91,21 @@ done
 
 # Try to load from dev handoff file if available (for separate admin/dev workflow)
 ADMIN_INPUT_FILE=""
-# Check handoff folder first, then current directory
-for f in handoff/02-dev-handoff-*.txt 02-dev-handoff-*.txt; do
-    if [ -f "$f" ]; then
-        ADMIN_INPUT_FILE="$f"
-        break
-    fi
-done
+# Use explicit handoff file if provided, otherwise search for one
+if [ -n "$HANDOFF_FILE" ] && [ -f "$HANDOFF_FILE" ]; then
+    ADMIN_INPUT_FILE="$HANDOFF_FILE"
+elif [ -n "$HANDOFF_FILE" ]; then
+    echo -e "${RED}Error: Handoff file not found: $HANDOFF_FILE${NC}"
+    exit 1
+else
+    # Check handoff folder first, then current directory
+    for f in handoff/02-dev-handoff-*.txt 02-dev-handoff-*.txt; do
+        if [ -f "$f" ]; then
+            ADMIN_INPUT_FILE="$f"
+            break
+        fi
+    done
+fi
 
 if [ -n "$ADMIN_INPUT_FILE" ] && [ -z "$AGENT_IDENTITY_ID" ] && [ -z "$MI_CLIENT_ID" ]; then
     echo -e "${GREEN}✓ Found admin input file: $ADMIN_INPUT_FILE${NC}"
@@ -133,21 +150,18 @@ if [ -z "$TENANT_ID" ]; then
 fi
 echo -e "${BLUE}Tenant: $TENANT_ID${NC}"
 
-# Auto-detect Agent Identity ID from azd environment if not provided
+# Get Agent Identity ID - must come from handoff file or command line
 if [ -z "$AGENT_IDENTITY_ID" ]; then
-    AZD_AGENT_ID=$(azd env get-value AGENT_IDENTITY_CLIENT_ID 2>/dev/null || echo "")
-    if [ -z "$AZD_AGENT_ID" ]; then
-        AZD_AGENT_ID=$(azd env get-value BOT_MICROSOFT_APP_ID 2>/dev/null || echo "")
-    fi
-    if [ -n "$AZD_AGENT_ID" ]; then
-        echo -e "${GREEN}✓ Auto-detected from azd: AGENT_IDENTITY_CLIENT_ID=$AZD_AGENT_ID${NC}"
-        AGENT_IDENTITY_ID="$AZD_AGENT_ID"
-    else
-        echo ""
-        echo "Enter the Agent Identity App Client ID from Phase 1:"
-        echo "(This is the same as BOT_MICROSOFT_APP_ID)"
-        read -p "AGENT_IDENTITY_CLIENT_ID: " AGENT_IDENTITY_ID
-    fi
+    echo ""
+    echo -e "${YELLOW}Agent Identity Client ID required.${NC}"
+    echo ""
+    echo "This value should be in the Developer's handoff file:"
+    echo "  - File: handoff/02-dev-handoff-{env}.txt"
+    echo "  - Look for: AGENT_IDENTITY_CLIENT_ID=..."
+    echo ""
+    echo "Or use: --handoff-file <path> or --agent-identity-id <id>"
+    echo ""
+    read -p "AGENT_IDENTITY_CLIENT_ID: " AGENT_IDENTITY_ID
 fi
 
 if [ -z "$AGENT_IDENTITY_ID" ]; then
@@ -163,18 +177,18 @@ AGENT_IDENTITY_NAME=$(az ad app show --id "$AGENT_IDENTITY_ID" --query displayNa
 }
 echo -e "${GREEN}✓ Found Agent Identity app: $AGENT_IDENTITY_NAME${NC}"
 
-# Auto-detect MI Client ID from azd environment if not provided
+# Get MI Client ID - must come from developer's handoff file
 if [ -z "$MI_CLIENT_ID" ]; then
-    AZD_MI_ID=$(azd env get-value MANAGED_IDENTITY_CLIENT_ID 2>/dev/null || echo "")
-    if [ -n "$AZD_MI_ID" ]; then
-        echo -e "${GREEN}✓ Auto-detected from azd: MANAGED_IDENTITY_CLIENT_ID=$AZD_MI_ID${NC}"
-        MI_CLIENT_ID="$AZD_MI_ID"
-    else
-        echo ""
-        echo "Enter the Managed Identity Client ID from the Developer:"
-        echo "(Developer can get this with: azd env get-value MANAGED_IDENTITY_CLIENT_ID)"
-        read -p "MANAGED_IDENTITY_CLIENT_ID: " MI_CLIENT_ID
-    fi
+    echo ""
+    echo -e "${YELLOW}Managed Identity Client ID required from Developer.${NC}"
+    echo ""
+    echo "This value should be in the Developer's handoff file:"
+    echo "  - File: handoff/02-dev-handoff-{env}.txt"
+    echo "  - Look for: MANAGED_IDENTITY_CLIENT_ID=..."
+    echo ""
+    echo "Or use: --handoff-file <path> or --mi-client-id <id>"
+    echo ""
+    read -p "MANAGED_IDENTITY_CLIENT_ID: " MI_CLIENT_ID
 fi
 
 if [ -z "$MI_CLIENT_ID" ]; then

@@ -50,6 +50,7 @@ TENANT_ID=""
 SECRET_YEARS=2
 OAUTH_CONNECTION_NAME="graph-connection"
 SCOPES="Files.Read Files.ReadWrite User.Read openid profile"
+HANDOFF_FILE=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -81,20 +82,25 @@ while [[ $# -gt 0 ]]; do
             SCOPES="$2"
             shift 2
             ;;
+        --handoff-file)
+            HANDOFF_FILE="$2"
+            shift 2
+            ;;
         -h|--help)
             echo "Usage: $0 [options]"
             echo ""
             echo "Options:"
-            echo "  --bot-app-id <id>         Bot App Registration Client ID (required)"
-            echo "  --resource-group <name>   Resource group containing Bot Service (required)"
-            echo "  --bot-name <name>         Bot Service resource name (required)"
+            echo "  --handoff-file <path>     Developer handoff file (02-dev-handoff-*.txt)"
+            echo "  --bot-app-id <id>         Bot App Registration Client ID"
+            echo "  --resource-group <name>   Resource group containing Bot Service"
+            echo "  --bot-name <name>         Bot Service resource name"
             echo "  --tenant-id <id>          Azure AD tenant ID (auto-detected if not provided)"
             echo "  --secret-years <n>        Client secret validity in years (default: 2)"
             echo "  --connection-name <name>  OAuth connection name (default: graph-connection)"
-            echo "  --scopes <scopes>         OAuth scopes (default: Files.Read Files.ReadWrite User.Read openid profile)"
+            echo "  --scopes <scopes>         OAuth scopes"
             echo ""
-            echo "Example:"
-            echo "  $0 --bot-app-id abc123 --resource-group rg-mybot --bot-name bot-mybot"
+            echo "For separated admin/dev workflow, place the developer handoff file in:"
+            echo "  handoff/02-dev-handoff-{env}.txt"
             exit 0
             ;;
         *)
@@ -106,13 +112,25 @@ done
 
 # Try to load from dev handoff file if available (for separate admin/dev workflow)
 ADMIN_INPUT_FILE=""
-# Check handoff folder first, then current directory
-for f in handoff/02-dev-handoff-*.txt 02-dev-handoff-*.txt; do
-    if [ -f "$f" ]; then
-        ADMIN_INPUT_FILE="$f"
-        break
+
+# Use explicit --handoff-file if provided
+if [ -n "$HANDOFF_FILE" ]; then
+    if [ -f "$HANDOFF_FILE" ]; then
+        ADMIN_INPUT_FILE="$HANDOFF_FILE"
+        echo -e "${GREEN}✓ Using specified handoff file: $HANDOFF_FILE${NC}"
+    else
+        echo -e "${RED}ERROR: Specified handoff file not found: $HANDOFF_FILE${NC}"
+        exit 1
     fi
-done
+else
+    # Auto-detect: Check handoff folder first, then current directory
+    for f in handoff/02-dev-handoff-*.txt 02-dev-handoff-*.txt; do
+        if [ -f "$f" ]; then
+            ADMIN_INPUT_FILE="$f"
+            break
+        fi
+    done
+fi
 
 if [ -n "$ADMIN_INPUT_FILE" ] && [ -z "$BOT_APP_ID" ] && [ -z "$RESOURCE_GROUP" ]; then
     echo -e "${GREEN}✓ Found admin input file: $ADMIN_INPUT_FILE${NC}"
@@ -164,47 +182,37 @@ if [ -z "$TENANT_ID" ]; then
 fi
 echo -e "${BLUE}Tenant: $TENANT_ID${NC}"
 
-# Auto-detect values from azd environment if available
-if command -v azd &> /dev/null; then
-    AZD_ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "")
-    if [ -n "$AZD_ENV_NAME" ]; then
-        echo -e "${GREEN}✓ Detected azd environment: $AZD_ENV_NAME${NC}"
-        
-        # Auto-detect Bot App ID
-        if [ -z "$BOT_APP_ID" ]; then
-            BOT_APP_ID=$(azd env get-value BOT_MICROSOFT_APP_ID 2>/dev/null || azd env get-value AGENT_IDENTITY_CLIENT_ID 2>/dev/null || echo "")
-            if [ -n "$BOT_APP_ID" ]; then
-                echo -e "${GREEN}✓ Auto-detected BOT_APP_ID: $BOT_APP_ID${NC}"
-            fi
-        fi
-        
-        # Auto-detect Resource Group
-        if [ -z "$RESOURCE_GROUP" ]; then
-            RESOURCE_GROUP="rg-$AZD_ENV_NAME"
-            echo -e "${GREEN}✓ Auto-detected RESOURCE_GROUP: $RESOURCE_GROUP${NC}"
-        fi
-        
-        # Auto-detect Bot Name
-        if [ -z "$BOT_NAME" ]; then
-            BOT_NAME="bot-$AZD_ENV_NAME"
-            echo -e "${GREEN}✓ Auto-detected BOT_NAME: $BOT_NAME${NC}"
-        fi
-    fi
-fi
-
-# Prompt for required values if still not provided
+# Prompt for required values if not provided via handoff file or command line
 if [ -z "$BOT_APP_ID" ]; then
     echo ""
+    echo -e "${YELLOW}Bot App ID not found.${NC}"
+    echo -e "  This should be in the Developer's handoff file:"
+    echo -e "  - File: handoff/02-dev-handoff-{env}.txt"
+    echo -e "  - Look for: AGENT_IDENTITY_CLIENT_ID=..."
+    echo -e ""
+    echo -e "  Or use: --bot-app-id <id> or --handoff-file <file>"
     read -p "Enter Bot App Registration Client ID: " BOT_APP_ID
 fi
 
 if [ -z "$RESOURCE_GROUP" ]; then
     echo ""
+    echo -e "${YELLOW}Resource Group not found.${NC}"
+    echo -e "  This should be in the Developer's handoff file:"
+    echo -e "  - File: handoff/02-dev-handoff-{env}.txt"
+    echo -e "  - Look for: RESOURCE_GROUP=..."
+    echo -e ""
+    echo -e "  Or use: --resource-group <name>"
     read -p "Enter Resource Group name: " RESOURCE_GROUP
 fi
 
 if [ -z "$BOT_NAME" ]; then
     echo ""
+    echo -e "${YELLOW}Bot Name not found.${NC}"
+    echo -e "  This should be in the Developer's handoff file:"
+    echo -e "  - File: handoff/02-dev-handoff-{env}.txt"
+    echo -e "  - Look for: BOT_NAME=..."
+    echo -e ""
+    echo -e "  Or use: --bot-name <name>"
     read -p "Enter Bot Service name: " BOT_NAME
 fi
 
@@ -372,11 +380,13 @@ EXISTING_CONNECTION=$(az bot authsetting list \
     --query "[?name=='$BOT_NAME/$OAUTH_CONNECTION_NAME'].name" -o tsv 2>/dev/null)
 
 if [ -n "$EXISTING_CONNECTION" ]; then
-    echo -e "${YELLOW}OAuth connection '$OAUTH_CONNECTION_NAME' already exists. Updating...${NC}"
+    echo -e "${YELLOW}OAuth connection '$OAUTH_CONNECTION_NAME' already exists. Deleting first...${NC}"
     az bot authsetting delete \
         --name "$BOT_NAME" \
         --resource-group "$RESOURCE_GROUP" \
-        --setting-name "$OAUTH_CONNECTION_NAME" > /dev/null 2>&1 || true
+        --setting-name "$OAUTH_CONNECTION_NAME" 2>/dev/null || true
+    echo "Waiting for deletion to complete..."
+    sleep 5
 fi
 
 az bot authsetting create \
@@ -387,9 +397,24 @@ az bot authsetting create \
     --client-secret "$CLIENT_SECRET" \
     --service "Aadv2" \
     --provider-scope-string "$SCOPES" \
-    --parameters tenantId="$TENANT_ID" tokenExchangeUrl="$TOKEN_EXCHANGE_URL" > /dev/null
+    --parameters tenantId="$TENANT_ID" tokenExchangeUrl="$TOKEN_EXCHANGE_URL"
 
-echo -e "${GREEN}✓ OAuth connection created: $OAUTH_CONNECTION_NAME${NC}"
+# Verify the OAuth connection was created correctly
+VERIFY_TOKEN_URL=$(az bot authsetting show \
+    --name "$BOT_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --setting-name "$OAUTH_CONNECTION_NAME" \
+    --query "properties.parameters[?key=='tokenExchangeUrl'].value" -o tsv 2>/dev/null)
+
+if [ "$VERIFY_TOKEN_URL" = "$TOKEN_EXCHANGE_URL" ]; then
+    echo -e "${GREEN}✓ OAuth connection created with tokenExchangeUrl: $TOKEN_EXCHANGE_URL${NC}"
+else
+    echo -e "${YELLOW}⚠ OAuth connection created but tokenExchangeUrl may not be set correctly.${NC}"
+    echo "  Expected: $TOKEN_EXCHANGE_URL"
+    echo "  Got: $VERIFY_TOKEN_URL"
+    echo ""
+    echo "  You may need to recreate it manually in Azure Portal or re-run this script."
+fi
 
 # =============================================================================
 # Summary
@@ -410,7 +435,7 @@ echo "  1. Test OAuth in Azure Portal:"
 echo "     Bot Service → Configuration → OAuth Connection Settings"
 echo "     Click on '$OAUTH_CONNECTION_NAME' → Test Connection"
 echo ""
-echo "  2. For Teams SSO, grant admin consent:"
+echo "  2. For Teams SSO, ensure admin consent was granted:"
 echo "     az ad app permission admin-consent --id $BOT_APP_ID"
 echo ""
 echo "  3. If using Teams, update your Teams manifest with:"

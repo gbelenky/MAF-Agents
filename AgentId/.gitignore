@@ -43,6 +43,9 @@ admin-input-*.txt
 # Deployment logs with environment values - DO NOT COMMIT
 deployment-logs/
 
+# App logs - DO NOT COMMIT
+app-logs/
+
 # User secrets (if any local files)
 usersecrets/
 
