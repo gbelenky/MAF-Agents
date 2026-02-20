@@ -1,0 +1,14 @@
+[project]
+name = "fabric-data-agent"
+version = "0.1.0"
+description = "Microsoft Fabric Data Agent SDK client for sending requests and getting responses"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "azure-identity>=1.17.1",
+    "fabric-data-agent-sdk>=0.1.18a0",
+    "openai>=2.21.0",
+    "pandas>=2.3.3",
+    "python-dotenv>=1.2.1",
+    "requests>=2.32.5",
+]
