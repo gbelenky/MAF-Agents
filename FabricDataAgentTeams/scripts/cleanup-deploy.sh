@@ -1,0 +1,150 @@
+#!/bin/bash
+#===============================================================================
+# Cleanup Script for Fabric Data Agent Teams Bot Deployment
+#===============================================================================
+# This script removes all resources created by a deployment:
+#   1. Azure resource group (and all contained resources)
+#   2. Entra ID app registration
+#   3. azd environment
+#
+# Usage: ./scripts/cleanup-deploy.sh --env <name>
+#===============================================================================
+
+set -e
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+ENV_NAME=""
+FORCE="false"
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --env)
+            ENV_NAME="$2"
+            shift 2
+            ;;
+        --force|-f)
+            FORCE="true"
+            shift
+            ;;
+        --help)
+            echo "Usage: $0 --env <name> [--force]"
+            echo ""
+            echo "Options:"
+            echo "  --env <name>   Environment name to clean up"
+            echo "  --force, -f    Skip confirmation prompts"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+if [ -z "$ENV_NAME" ]; then
+    echo -e "${RED}Error: --env is required${NC}"
+    echo "Usage: $0 --env <name>"
+    exit 1
+fi
+
+echo ""
+echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${YELLOW}║     Fabric Data Agent Teams Bot - Cleanup Deployment          ║${NC}"
+echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+echo -e "${YELLOW}WARNING: This will permanently delete:${NC}"
+echo "  - Resource group: rg-$ENV_NAME (and all Azure resources)"
+echo "  - App registration: ${ENV_NAME}-Agent"
+echo "  - azd environment: $ENV_NAME"
+echo ""
+
+if [ "$FORCE" != "true" ]; then
+    read -p "Are you sure you want to continue? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Cancelled."
+        exit 0
+    fi
+fi
+
+echo ""
+
+# 1. Delete Azure resource group
+echo -e "${BLUE}[1/3] Deleting Azure resource group...${NC}"
+RESOURCE_GROUP="rg-$ENV_NAME"
+if az group exists --name "$RESOURCE_GROUP" 2>/dev/null | grep -q "true"; then
+    az group delete --name "$RESOURCE_GROUP" --yes --no-wait
+    echo -e "${GREEN}✓ Resource group deletion initiated (running in background)${NC}"
+else
+    echo -e "${YELLOW}⚠ Resource group not found: $RESOURCE_GROUP${NC}"
+fi
+
+# 2. Delete Bot app registration
+echo -e "${BLUE}[2/3] Deleting Bot app registration...${NC}"
+APP_ID=$(az ad app list --filter "displayName eq '${ENV_NAME}-Agent'" --query "[0].appId" -o tsv 2>/dev/null)
+# Also check old naming conventions
+if [ -z "$APP_ID" ]; then
+    APP_ID=$(az ad app list --filter "displayName eq '${ENV_NAME}-Identity'" --query "[0].appId" -o tsv 2>/dev/null)
+fi
+if [ -n "$APP_ID" ]; then
+    az ad app delete --id "$APP_ID" 2>/dev/null || true
+    echo -e "${GREEN}✓ Deleted Bot app: $APP_ID${NC}"
+else
+    echo -e "${YELLOW}⚠ Bot app not found${NC}"
+fi
+
+# 3. Delete azd environment
+echo -e "${BLUE}[3/3] Deleting azd environment...${NC}"
+cd "$PROJECT_DIR"
+if azd env list 2>/dev/null | grep -q "$ENV_NAME"; then
+    # Switch to different env if this is default
+    CURRENT_DEFAULT=$(azd env list 2>/dev/null | grep "true" | awk '{print $1}')
+    if [ "$CURRENT_DEFAULT" = "$ENV_NAME" ]; then
+        # Find another env to make default, or leave empty
+        OTHER_ENV=$(azd env list 2>/dev/null | grep "false" | head -1 | awk '{print $1}')
+        if [ -n "$OTHER_ENV" ]; then
+            azd env select "$OTHER_ENV" 2>/dev/null || true
+        fi
+    fi
+    
+    # Remove the .azure/ENV_NAME directory
+    rm -rf ".azure/$ENV_NAME" 2>/dev/null || true
+    echo -e "${GREEN}✓ Deleted azd environment: $ENV_NAME${NC}"
+else
+    echo -e "${YELLOW}⚠ azd environment not found: $ENV_NAME${NC}"
+fi
+
+# 4. Clean up handoff files for this environment
+echo -e "${BLUE}[Bonus] Cleaning up handoff files...${NC}"
+HANDOFF_CLEANED=0
+for f in handoff/*-${ENV_NAME}*.txt handoff/*-${ENV_NAME}-*.txt; do
+    if [ -f "$f" ]; then
+        rm -f "$f"
+        HANDOFF_CLEANED=$((HANDOFF_CLEANED + 1))
+    fi
+done
+if [ $HANDOFF_CLEANED -gt 0 ]; then
+    echo -e "${GREEN}✓ Removed $HANDOFF_CLEANED handoff file(s)${NC}"
+else
+    echo -e "${YELLOW}⚠ No handoff files found for $ENV_NAME${NC}"
+fi
+
+echo ""
+echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║              ✅ CLEANUP COMPLETE                              ║${NC}"
+echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "${YELLOW}Note: Azure resource group deletion runs in background.${NC}"
+echo -e "${YELLOW}It may take a few minutes to complete.${NC}"
+echo ""

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.19",
+  "version": "{{MANIFEST_VERSION}}",
+  "id": "{{BOT_APP_ID}}",
+  "developer": {
+    "name": "Your Organization",
+    "websiteUrl": "https://{{APP_HOSTNAME}}",
+    "privacyUrl": "https://privacy.microsoft.com/privacystatement",
+    "termsOfUseUrl": "https://www.microsoft.com/legal/terms-of-use"
+  },
+  "name": {
+    "short": "{{AGENT_NAME}}",
+    "full": "{{AGENT_NAME_FULL}}"
+  },
+  "description": {
+    "short": "AI assistant powered by Fabric Data Agent",
+    "full": "An AI-powered assistant that helps you query and explore your data using Microsoft Fabric Data Agents. Ask questions in natural language and get insights from your data."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#0078D4",
+  "bots": [
+    {
+      "botId": "{{BOT_APP_ID}}",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team", "groupChat"],
+          "commands": [
+            {
+              "title": "help",
+              "description": "Show available commands"
+            },
+            {
+              "title": "ask",
+              "description": "Ask a question about your data"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "{{APP_HOSTNAME}}",
+    "token.botframework.com"
+  ],
+  "webApplicationInfo": {
+    "id": "{{BOT_APP_ID}}",
+    "resource": "api://botid-{{BOT_APP_ID}}"
+  }
+}

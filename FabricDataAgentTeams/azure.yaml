@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: fabric-data-agent-teams
+metadata:
+  template: fabric-data-agent-teams
+
+# Service definitions
+services:
+  # Fabric Data Agent Teams Bot (Python)
+  api:
+    project: .
+    language: python
+    host: appservice

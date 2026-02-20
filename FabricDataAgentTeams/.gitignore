@@ -1,0 +1,46 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+.uv/
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Handoff files (contain secrets)
+handoff/*
+!handoff/.gitkeep
+
+# Teams manifest (generated)
+teams-manifest/*.zip
+teams-manifest/manifest.json
+
+# App logs (downloaded during troubleshooting)
+app-logs*/
+app-logs*.zip
