@@ -1,0 +1,59 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.19",
+  "version": "1.0.0",
+  "id": "f1708d02-0ff2-4952-a6d0-9b197919e1fe",
+  "developer": {
+    "name": "Your Organization",
+    "websiteUrl": "https://app-gt2vgrqlfivug.azurewebsites.net",
+    "privacyUrl": "https://privacy.microsoft.com/privacystatement",
+    "termsOfUseUrl": "https://www.microsoft.com/legal/terms-of-use"
+  },
+  "name": {
+    "short": "TeamsStreamingZH",
+    "full": "TeamsStreamingZH - AI Streaming Assistant"
+  },
+  "description": {
+    "short": "AI-powered bot with real-time streaming responses",
+    "full": "This bot demonstrates Microsoft Agent Framework integration with Teams, featuring real-time streaming responses. Ask questions and see the AI generate responses in real-time!"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#5B5FC7",
+  "bots": [
+    {
+      "botId": "f1708d02-0ff2-4952-a6d0-9b197919e1fe",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team", "groupChat"],
+          "commands": [
+            {
+              "title": "help",
+              "description": "Show help information"
+            },
+            {
+              "title": "hello",
+              "description": "Say hello to the bot"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "validDomains": [
+    "app-gt2vgrqlfivug.azurewebsites.net"
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "webApplicationInfo": {
+    "id": "f1708d02-0ff2-4952-a6d0-9b197919e1fe",
+    "resource": "api://app-TeamsStreamingZH.azurewebsites.net/f1708d02-0ff2-4952-a6d0-9b197919e1fe"
+  }
+}

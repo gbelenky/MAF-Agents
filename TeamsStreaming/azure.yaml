@@ -1,0 +1,42 @@
+# Azure Developer CLI (azd) configuration
+name: teams-streaming-bot
+metadata:
+  template: teams-streaming-bot@1.0.0
+
+# Workflow hooks
+hooks:
+  preprovision:
+    shell: pwsh
+    run: |
+      Write-Host "Preparing to provision Azure resources..."
+  
+  postprovision:
+    shell: pwsh
+    run: |
+      Write-Host "Azure resources provisioned successfully!"
+      Write-Host "Bot ID: $env:BOT_ID"
+      Write-Host "Web App URL: $env:SERVICE_BOT_URL"
+      Write-Host ""
+      Write-Host "Next steps:"
+      Write-Host "1. Update your Teams app manifest with the Bot ID"
+      Write-Host "2. Configure the Azure Bot messaging endpoint to: $env:SERVICE_BOT_URL/api/messages"
+      Write-Host "3. Add the Microsoft Teams channel to your Azure Bot"
+
+# Services in this project
+services:
+  bot:
+    project: ./src/TeamsStreamingBot
+    language: csharp
+    host: appservice
+    hooks:
+      postdeploy:
+        shell: pwsh
+        run: |
+          Write-Host "Bot deployed successfully!"
+          Write-Host "Messaging endpoint: $env:SERVICE_BOT_URL/api/messages"
+
+# Infrastructure settings
+infra:
+  provider: bicep
+  path: ./infra
+  module: main

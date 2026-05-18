@@ -34,10 +34,10 @@ IChatClient chatClient = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzu
     .UseFunctionInvocation()
     .Build();
 
-// Create the MAF Durable Agent with tools (for DTS-based invocation)
-AIAgent mafAgent = chatClient.CreateAIAgent(
-    instructions: WeatherAgent.Instructions,
+// Create the MAF Durable Agent using the IChatClient extension
+AIAgent mafAgent = chatClient.AsAIAgent(
     name: "MAFDurableAgent",
+    instructions: WeatherAgent.Instructions,
     tools: tools);
 
 // Build and run the Azure Functions host with Durable Agent

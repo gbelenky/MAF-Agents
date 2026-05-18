@@ -1,0 +1,50 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "<<BOT_ID>>",
+  "developer": {
+    "name": "Your Organization",
+    "websiteUrl": "https://www.example.com",
+    "privacyUrl": "https://www.example.com/privacy",
+    "termsOfUseUrl": "https://www.example.com/terms"
+  },
+  "name": {
+    "short": "Streaming Bot",
+    "full": "Teams Streaming Bot with Microsoft Agent Framework"
+  },
+  "description": {
+    "short": "An AI-powered bot with real-time streaming responses",
+    "full": "This bot demonstrates Microsoft Agent Framework integration with Teams, featuring real-time streaming responses. Ask questions and see the AI generate responses in real-time!"
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#5B5FC7",
+  "bots": [
+    {
+      "botId": "<<BOT_ID>>",
+      "scopes": [
+        "personal",
+        "team",
+        "groupChat"
+      ],
+      "isNotificationOnly": false,
+      "supportsFiles": false,
+      "supportsCalling": false,
+      "supportsVideo": false
+    }
+  ],
+  "validDomains": [
+    "<<BOT_DOMAIN>>"
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "webApplicationInfo": {
+    "id": "<<BOT_ID>>",
+    "resource": "api://<<BOT_DOMAIN>>/<<BOT_ID>>"
+  }
+}

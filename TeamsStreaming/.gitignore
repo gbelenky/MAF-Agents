@@ -1,0 +1,16 @@
+# Bot credentials - NEVER commit these
+bot-credentials-*.txt
+
+# Handoff files - contain sensitive info
+handoff/*.txt
+!handoff/.gitkeep
+
+# Teams manifest packages (generated)
+teams-manifest/*.zip
+
+# Environment files
+.env
+.env.local
+
+# Azure Developer CLI environment files
+.azure/

@@ -18,7 +18,7 @@
     
     <!-- MAF Durable Agent Hosting on Azure Functions -->
     <PackageReference Include="Microsoft.Agents.AI.Hosting.AzureFunctions" Version="1.0.0-preview.*" />
-    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.0.0-preview.*" />
+    <PackageReference Include="Microsoft.Agents.AI.Hosting.OpenAI" Version="1.0.0-alpha.*" />
     
     <!-- Azure Functions -->
     <PackageReference Include="Microsoft.ApplicationInsights.WorkerService" Version="2.23.0" />

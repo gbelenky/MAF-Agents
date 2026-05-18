@@ -1,0 +1,10 @@
+{
+  "webServerFarms": "plan-",
+  "webSitesAppService": "app-",
+  "cognitiveServicesBot": "bot-",
+  "cognitiveServicesOpenAI": "oai-",
+  "keyVault": "kv-",
+  "storageAccount": "st",
+  "appInsights": "appi-",
+  "logAnalyticsWorkspace": "log-"
+}
